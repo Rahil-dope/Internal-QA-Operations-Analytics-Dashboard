@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { ExcelDataAdapter } from '../lib/dataAdapter';
+import { loadWorkbookFromDB, saveWorkbookToDB, clearWorkbookFromDB } from '../lib/db';
+import { parseExcelFile, validateWorkbook } from '../lib/excelParser';
 import type { OperationsDataAdapter } from '../lib/dataAdapter';
 import type { 
   OperationsDataset, 
@@ -15,10 +17,17 @@ interface AgentListItem {
   name: string;
 }
 
+export type SourceType = 'default' | 'uploaded';
+
 interface ExcelDataContextProps {
   loading: boolean;
   error: string | null;
   dataset: OperationsDataset | null;
+  
+  // Metadata
+  sourceType: SourceType;
+  fileName: string;
+  lastUpdated: Date | null;
   
   // Global Filters
   startDate: Date | null;
@@ -32,6 +41,11 @@ interface ExcelDataContextProps {
   setSelectedAgent: (agent: string | null) => void;
   setSearchQuery: (query: string) => void;
   resetFilters: () => void;
+  
+  // Operations
+  uploadWorkbook: (file: File) => Promise<boolean>;
+  resetToDefault: () => Promise<void>;
+  refreshData: () => Promise<void>;
   
   // Filtered Datasets
   filteredDsat: DSATAudit[];
@@ -56,6 +70,11 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
   const [error, setError] = useState<string | null>(null);
   const [dataset, setDataset] = useState<OperationsDataset | null>(null);
 
+  // Metadata State
+  const [sourceType, setSourceType] = useState<SourceType>('default');
+  const [fileName, setFileName] = useState<string>('data.xlsx');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
   // Filter State
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -63,39 +82,149 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Use the injected adapter or default to ExcelDataAdapter
-  const dataAdapter = useMemo(() => adapter || new ExcelDataAdapter('/data.xlsx'), [adapter]);
+  const defaultAdapter = useMemo(() => adapter || new ExcelDataAdapter('/data.xlsx'), [adapter]);
 
-  // Load data
-  useEffect(() => {
-    let active = true;
+  // Load workbook (from IndexedDB if present, else fallback to public URL)
+  const loadActiveWorkbook = async (forceRefresh: boolean = false) => {
     setLoading(true);
     setError(null);
     
-    dataAdapter.fetchData()
-      .then(data => {
-        if (!active) return;
-        setDataset(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        if (!active) return;
-        console.error(err);
-        setError(err.message || 'Failed to load operations data');
-        setLoading(false);
-      });
+    try {
+      if (!forceRefresh) {
+        // Try loading custom workbook from IndexedDB
+        const storedBuffer = await loadWorkbookFromDB();
+        if (storedBuffer) {
+          // Retrieve metadata from local storage
+          const metaStr = localStorage.getItem('workbook_meta');
+          let name = 'uploaded_data.xlsx';
+          let updated = new Date();
+          
+          if (metaStr) {
+            try {
+              const meta = JSON.parse(metaStr);
+              name = meta.name || name;
+              updated = meta.timestamp ? new Date(meta.timestamp) : updated;
+            } catch (e) {
+              console.error('Error parsing workbook metadata:', e);
+            }
+          }
+          
+          // Validate stored buffer
+          const report = validateWorkbook(storedBuffer);
+          if (report.valid) {
+            const data = parseExcelFile(storedBuffer);
+            setDataset(data);
+            setSourceType('uploaded');
+            setFileName(name);
+            setLastUpdated(updated);
+            setLoading(false);
+            return;
+          } else {
+            console.warn('Persisted workbook in IndexedDB failed validation. Reverting to default.');
+            await clearWorkbookFromDB();
+            localStorage.removeItem('workbook_meta');
+          }
+        }
+      }
       
-    return () => {
-      active = false;
-    };
-  }, [dataAdapter]);
+      // Fallback: Fetch default /data.xlsx
+      const data = await defaultAdapter.fetchData();
+      setDataset(data);
+      setSourceType('default');
+      setFileName('data.xlsx');
+      setLastUpdated(new Date());
+      setLoading(false);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to load operations workbook');
+      setLoading(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    loadActiveWorkbook();
+  }, [defaultAdapter]);
+
+  // Expose upload action
+  const uploadWorkbook = async (file: File): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const buffer = await file.arrayBuffer();
+      
+      // Validate
+      const report = validateWorkbook(buffer);
+      if (!report.valid) {
+        throw new Error('Workbook failed schema validation. Check upload report for details.');
+      }
+      
+      // Save to IndexedDB
+      await saveWorkbookToDB(buffer);
+      
+      // Save metadata
+      const timestamp = new Date();
+      localStorage.setItem('workbook_meta', JSON.stringify({
+        type: 'uploaded',
+        name: file.name,
+        timestamp: timestamp.toISOString()
+      }));
+      
+      // Parse and set state
+      const data = parseExcelFile(buffer);
+      setDataset(data);
+      setSourceType('uploaded');
+      setFileName(file.name);
+      setLastUpdated(timestamp);
+      
+      // Reset filter bounds to match the new file
+      setStartDate(null);
+      setEndDate(null);
+      setSelectedAgent(null);
+      setSearchQuery('');
+      
+      setLoading(false);
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to upload and parse the workbook.');
+      setLoading(false);
+      return false;
+    }
+  };
+
+  // Expose reset to default action
+  const resetToDefault = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      await clearWorkbookFromDB();
+      localStorage.removeItem('workbook_meta');
+      
+      // Reset filters
+      setStartDate(null);
+      setEndDate(null);
+      setSelectedAgent(null);
+      setSearchQuery('');
+      
+      await loadActiveWorkbook(true);
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || 'Failed to clear custom database');
+      setLoading(false);
+    }
+  };
+
+  // Expose refresh data action
+  const refreshData = async (): Promise<void> => {
+    await loadActiveWorkbook(sourceType === 'default');
+  };
 
   // Compute unified list of agents
   const agents = useMemo<AgentListItem[]>(() => {
     if (!dataset) return [];
     
     const emailToName = new Map<string, string>();
-    
-    // Helper to add emails and names, ensuring we keep names instead of emails where possible
     const addAgent = (email: string, name: string) => {
       const cleanedEmail = email.trim().toLowerCase();
       if (!cleanedEmail) return;
@@ -103,13 +232,11 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       const cleanedName = name.trim();
       const existingName = emailToName.get(cleanedEmail);
       
-      // If we don't have a name yet, or the current name is better (more characters, not an email itself)
       if (!existingName || (cleanedName && !cleanedName.includes('@') && (cleanedName.length > existingName.length || existingName.includes('@')))) {
         emailToName.set(cleanedEmail, cleanedName || cleanedEmail.split('@')[0]);
       }
     };
 
-    // Populate from all sheets
     dataset.dsat.forEach(d => addAgent(d.agentId, d.agentName));
     dataset.aht.forEach(a => addAgent(a.agentEmail, a.agentEmail.split('@')[0]));
     dataset.escalations.forEach(e => addAgent(e.agentEmail, e.agentName));
@@ -156,7 +283,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     };
   }, [dataset]);
 
-  // Set default dates based on workbook bounds
+  // Sync default filter dates when bounds change
   useEffect(() => {
     if (dateBounds && !startDate && !endDate) {
       setStartDate(dateBounds.min);
@@ -181,10 +308,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     if (!startDate && !endDate) return true;
     
     const cellTime = date.getTime();
-    
-    // Adjust start date to beginning of day
     const startLimit = startDate ? new Date(startDate.getTime()).setHours(0, 0, 0, 0) : -Infinity;
-    // Adjust end date to end of day
     const endLimit = endDate ? new Date(endDate.getTime()).setHours(23, 59, 59, 999) : Infinity;
     
     return cellTime >= startLimit && cellTime <= endLimit;
@@ -199,16 +323,13 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     return isEmailMatch || isNameMatch;
   };
 
-  // Apply filters to DSAT
+  // Filtered DSAT
   const filteredDsat = useMemo(() => {
     if (!dataset) return [];
     return dataset.dsat.filter(item => {
-      // Date filter
       if (!isWithinDateRange(item.date)) return false;
-      // Agent filter
       if (!isAgentMatch(item.agentId, item.agentName) && !isAgentMatch(item.ldapEmail)) return false;
       
-      // Search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
@@ -223,12 +344,11 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
           item.observations.toLowerCase().includes(query)
         );
       }
-      
       return true;
     });
   }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
 
-  // Apply filters to AHT
+  // Filtered AHT
   const filteredAht = useMemo(() => {
     if (!dataset) return [];
     return dataset.aht.filter(item => {
@@ -251,7 +371,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     });
   }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
 
-  // Apply filters to SM Escalations
+  // Filtered SM Escalations
   const filteredEscalations = useMemo(() => {
     if (!dataset) return [];
     return dataset.escalations.filter(item => {
@@ -281,7 +401,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     });
   }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
 
-  // Apply filters to Shrinkage
+  // Filtered Shrinkage
   const filteredShrinkage = useMemo(() => {
     if (!dataset) return [];
     return dataset.shrinkage.filter(item => {
@@ -302,7 +422,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     });
   }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
 
-  // Apply filters to Performance (Agent KPI Summary)
+  // Filtered Performance
   const filteredPerformance = useMemo(() => {
     if (!dataset) return [];
     return dataset.performance.filter(item => {
@@ -321,6 +441,9 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       loading,
       error,
       dataset,
+      sourceType,
+      fileName,
+      lastUpdated,
       startDate,
       endDate,
       selectedAgent,
@@ -330,6 +453,9 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       setSelectedAgent,
       setSearchQuery,
       resetFilters,
+      uploadWorkbook,
+      resetToDefault,
+      refreshData,
       filteredDsat,
       filteredAht,
       filteredEscalations,
@@ -347,7 +473,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
 export const useExcelData = () => {
   const context = useContext(ExcelDataContext);
   if (context === undefined) {
-    throw new Error('useExcelData must be used within an ExcelDataProviderWrapper');
+    throw new Error('useExcelData must be used within an ExcelDataProvider');
   }
   return context;
 };
