@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { Select } from '../../components/ui/select';
 import { getKpiInsights } from '../../lib/insights/kpiInsights';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { formatPercent, formatDuration } from '../../lib/utils';
 import { 
   UserCheck, 

@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart } from '../../components/shared/ChartCard';
 import { getShrinkageInsights } from '../../lib/insights/shrinkageInsights';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { formatDate, formatPercent, formatDuration } from '../../lib/utils';
 import { 
   UserCheck, 
@@ -12,8 +12,7 @@ import {
   Calendar, 
   AlertTriangle, 
   Clock,
-  Zap,
-  Info
+  Zap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ShrinkageRecord } from '../../types/data';
