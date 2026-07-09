@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 import {
   flexRender,
   getCoreRowModel,
@@ -109,6 +110,38 @@ export function DataTable<TData, TValue>({
     document.body.removeChild(link);
   };
 
+  // Convert array of objects to Excel download
+  const handleExportExcel = () => {
+    if (data.length === 0) return;
+    
+    const headers = columns
+      .map(col => col.header as string)
+      .filter(h => typeof h === 'string');
+      
+    const keys = columns
+      .map(col => (col as any).accessorKey || (col as any).id)
+      .filter(Boolean);
+
+    const excelData = data.map(row => {
+      const obj: Record<string, any> = {};
+      keys.forEach((key, idx) => {
+        const headerName = headers[idx] || key;
+        let val = (row as any)[key];
+        if (val instanceof Date) {
+          val = val.toISOString().split('T')[0];
+        }
+        obj[headerName] = val === null || val === undefined ? '' : val;
+      });
+      return obj;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Export');
+    const excelFilename = exportFilename.replace(/\.csv$/, '.xlsx');
+    XLSX.writeFile(workbook, excelFilename);
+  };
+
   return (
     <div className="space-y-4">
       {/* Table Actions (Search + Export) */}
@@ -128,15 +161,26 @@ export function DataTable<TData, TValue>({
             </div>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportCSV}
-          className="flex items-center gap-1.5 h-9 shrink-0"
-          disabled={data.length === 0}
-        >
-          <Download className="w-4 h-4" /> Export CSV
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 h-9"
+            disabled={data.length === 0}
+          >
+            <Download className="w-4 h-4" /> CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 h-9"
+            disabled={data.length === 0}
+          >
+            <Download className="w-4 h-4" /> Excel
+          </Button>
+        </div>
       </div>
 
       {/* Table Body */}
