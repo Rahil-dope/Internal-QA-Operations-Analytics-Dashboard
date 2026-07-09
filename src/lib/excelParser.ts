@@ -10,11 +10,7 @@ import type {
   OperationsDataset 
 } from '../types/data';
 
-// Helper to normalize strings for comparison
-const normalizeHeader = (name: any): string => {
-  if (name === null || name === undefined) return '';
-  return name.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-};
+
 
 // Robust date parsing
 export function parseExcelDate(val: any): Date {
@@ -69,15 +65,71 @@ export function parseExcelDuration(val: any): number {
   return 0;
 }
 
-// Helper to determine the header row index and map normalized names to column indices
-function mapHeaders(rows: any[][], schema: SheetSchema): { headerMap: Map<string, number>; startRowIdx: number } {
+// Helper to calculate Levenshtein distance between two strings
+function getLevenshteinDistance(s1: string, s2: string): number {
+  const len1 = s1.length;
+  const len2 = s2.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+  return matrix[len1][len2];
+}
+
+// Calculate similarity ratio between 0.0 and 1.0
+export function getSimilarity(s1: string, s2: string): number {
+  const dist = getLevenshteinDistance(s1, s2);
+  const maxLen = Math.max(s1.length, s2.length);
+  if (maxLen === 0) return 1.0;
+  return 1.0 - dist / maxLen;
+}
+
+// Robust header normalization
+export function normalizeHeader(name: any): string {
+  if (name === null || name === undefined) return '';
+  return name
+    .toString()
+    .toLowerCase()
+    .replace(/[\s_\-\[\]\(\)\{\}\?\!\.\,\;\:\'\"\`]/g, '') // remove spaces, underscores, hyphens, brackets, punctuation
+    .replace(/[^a-z0-9]/g, ''); // fallback to ensure pure alphanumeric
+}
+
+// Helper to determine the header row index and map schema keys directly to column indices
+function mapHeaders(
+  rows: any[][], 
+  schema: SheetSchema
+): { 
+  headerMap: Map<string, number>; 
+  startRowIdx: number; 
+  warnings: string[];
+  mappings: Array<{ original: string; mappedTo: string; type: 'exact' | 'alias' | 'fuzzy' }>;
+} {
   const headerMap = new Map<string, number>();
+  const warnings: string[] = [];
+  const mappings: Array<{ original: string; mappedTo: string; type: 'exact' | 'alias' | 'fuzzy' }> = [];
+  
   let headerRowIdx = 0;
   let maxMatches = -1;
 
-  // Compile all valid aliases in schema
+  // Compile all valid aliases in schema (including normalized keys)
   const allAliases = new Set<string>();
   schema.columns.forEach(col => {
+    allAliases.add(normalizeHeader(col.key));
     col.aliases.forEach(alias => allAliases.add(normalizeHeader(alias)));
   });
 
@@ -103,39 +155,135 @@ function mapHeaders(rows: any[][], schema: SheetSchema): { headerMap: Map<string
   }
 
   const headerRow = rows[headerRowIdx] || [];
+  const matchedIndices = new Set<number>();
+
+  // Map columns by priorities:
+  // 1. Exact match with key
+  // 2. Exact match with alias
+  // 3. Fuzzy match with key/alias (similarity >= 0.85)
+
+  schema.columns.forEach(col => {
+    const normKey = normalizeHeader(col.key);
+    const normAliases = col.aliases.map(a => normalizeHeader(a));
+    
+    // Step 1: Exact key match
+    let foundIdx = -1;
+    for (let idx = 0; idx < headerRow.length; idx++) {
+      if (matchedIndices.has(idx)) continue;
+      const cell = headerRow[idx];
+      if (cell !== null && cell !== undefined) {
+        const normCell = normalizeHeader(cell);
+        if (normCell === normKey) {
+          foundIdx = idx;
+          headerMap.set(col.key, idx);
+          matchedIndices.add(idx);
+          mappings.push({ original: String(cell), mappedTo: col.key, type: 'exact' });
+          break;
+        }
+      }
+    }
+    if (foundIdx !== -1) return;
+
+    // Step 2: Exact alias match
+    for (let idx = 0; idx < headerRow.length; idx++) {
+      if (matchedIndices.has(idx)) continue;
+      const cell = headerRow[idx];
+      if (cell !== null && cell !== undefined) {
+        const normCell = normalizeHeader(cell);
+        if (normAliases.includes(normCell)) {
+          foundIdx = idx;
+          headerMap.set(col.key, idx);
+          matchedIndices.add(idx);
+          mappings.push({ original: String(cell), mappedTo: col.key, type: 'alias' });
+          warnings.push(`Mapped alias: "${cell}" -> "${col.key}"`);
+          break;
+        }
+      }
+    }
+    if (foundIdx !== -1) return;
+
+    // Step 3: Fuzzy similarity match
+    let bestSimilarity = -1;
+    let bestIdx = -1;
+    let bestCellVal = '';
+
+    for (let idx = 0; idx < headerRow.length; idx++) {
+      if (matchedIndices.has(idx)) continue;
+      const cell = headerRow[idx];
+      if (cell !== null && cell !== undefined) {
+        const normCell = normalizeHeader(cell);
+        
+        // Compare with key similarity
+        const keySim = getSimilarity(normCell, normKey);
+        if (keySim >= 0.85 && keySim > bestSimilarity) {
+          bestSimilarity = keySim;
+          bestIdx = idx;
+          bestCellVal = String(cell);
+        }
+
+        // Compare with aliases similarity
+        for (const alias of normAliases) {
+          const aliasSim = getSimilarity(normCell, alias);
+          if (aliasSim >= 0.85 && aliasSim > bestSimilarity) {
+            bestSimilarity = aliasSim;
+            bestIdx = idx;
+            bestCellVal = String(cell);
+          }
+        }
+      }
+    }
+
+    if (bestIdx !== -1) {
+      headerMap.set(col.key, bestIdx);
+      matchedIndices.add(bestIdx);
+      mappings.push({ original: bestCellVal, mappedTo: col.key, type: 'fuzzy' });
+      warnings.push(`Mapped fuzzy: "${bestCellVal}" -> "${col.key}" (similarity ${(bestSimilarity * 100).toFixed(0)}%)`);
+    }
+  });
+
+  // Step 4: Warn about unused columns
   headerRow.forEach((cell, idx) => {
-    if (cell !== null && cell !== undefined) {
-      const norm = normalizeHeader(cell);
-      if (norm) {
-        headerMap.set(norm, idx);
+    if (cell !== null && cell !== undefined && !matchedIndices.has(idx)) {
+      const cellStr = String(cell).trim();
+      if (cellStr) {
+        warnings.push(`Unused column in sheet: "${cellStr}"`);
       }
     }
   });
+
+  // Developer logging in Dev environment
+  const isDev = !!(import.meta.env && import.meta.env.DEV);
+  if (isDev && mappings.length > 0) {
+    console.log(`\n[Dev Mapping] Sheet: ${schema.name}`);
+    console.log(`--------------------------------------------------------------------------------`);
+    console.log(`${"Original Header".padEnd(45)} | ${"Internal Field".padEnd(20)} | Type`);
+    console.log(`--------------------------------------------------------------------------------`);
+    mappings.forEach(m => {
+      console.log(`${m.original.substring(0, 44).padEnd(45)} | ${m.mappedTo.padEnd(20)} | ${m.type}`);
+    });
+    if (warnings.length > 0) {
+      console.log(`Warnings (${warnings.length}):`);
+      warnings.forEach(w => console.log(`  - ${w}`));
+    }
+    console.log(`--------------------------------------------------------------------------------\n`);
+  }
 
   return {
     headerMap,
-    startRowIdx: headerRowIdx + 1
+    startRowIdx: headerRowIdx + 1,
+    warnings,
+    mappings
   };
 }
 
-// Map a single row of cells into a typed object based on aliases defined in schema
+// Map a single row of cells into a typed object based on index mapping in headerMap
 function mapRowBySchema<T>(row: any[], headerMap: Map<string, number>, schema: SheetSchema): T {
   const result = {} as T;
-  
   schema.columns.forEach(col => {
-    let foundIdx = -1;
-    for (const alias of col.aliases) {
-      const normAlias = normalizeHeader(alias);
-      if (headerMap.has(normAlias)) {
-        foundIdx = headerMap.get(normAlias)!;
-        break;
-      }
-    }
-    
+    const foundIdx = headerMap.has(col.key) ? headerMap.get(col.key)! : -1;
     const rawVal = foundIdx !== -1 && foundIdx < row.length ? row[foundIdx] : null;
     result[col.key as keyof T] = rawVal as any;
   });
-  
   return result;
 }
 
@@ -145,6 +293,7 @@ export interface SheetValidationReport {
   empty: boolean;
   missingColumns: string[];
   validColumns: string[];
+  warnings: string[];
 }
 
 export interface ValidationReport {
@@ -168,7 +317,8 @@ export function validateWorkbook(buffer: ArrayBuffer): ValidationReport {
         exists: false,
         empty: true,
         missingColumns: schema.columns.filter(c => c.required).map(c => c.key),
-        validColumns: []
+        validColumns: [],
+        warnings: []
       });
       continue;
     }
@@ -181,26 +331,19 @@ export function validateWorkbook(buffer: ArrayBuffer): ValidationReport {
         exists: true,
         empty: true,
         missingColumns: schema.columns.filter(c => c.required).map(c => c.key),
-        validColumns: []
+        validColumns: [],
+        warnings: []
       });
       continue;
     }
 
-    const { headerMap } = mapHeaders(rows, schema);
+    const { headerMap, warnings } = mapHeaders(rows, schema);
 
     const missingColumns: string[] = [];
     const validColumns: string[] = [];
 
     schema.columns.forEach(col => {
-      let found = false;
-      for (const alias of col.aliases) {
-        const normAlias = normalizeHeader(alias);
-        if (headerMap.has(normAlias)) {
-          found = true;
-          break;
-        }
-      }
-      if (found) {
+      if (headerMap.has(col.key)) {
         validColumns.push(col.key);
       } else if (col.required) {
         missingColumns.push(col.key);
@@ -213,7 +356,8 @@ export function validateWorkbook(buffer: ArrayBuffer): ValidationReport {
       exists: true,
       empty: false,
       missingColumns,
-      validColumns
+      validColumns,
+      warnings
     });
   }
 

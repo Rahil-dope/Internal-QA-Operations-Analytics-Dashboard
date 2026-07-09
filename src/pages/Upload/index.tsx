@@ -121,6 +121,7 @@ export const UploadPage: React.FC = () => {
         exists: sheet.exists,
         empty: sheet.empty,
         isValid: sheet.exists && !sheet.empty && requiredMissing.length === 0,
+        warnings: sheet.warnings || [],
         missingRequired: requiredMissing.map(key => {
           const colSchema = schema?.columns.find(c => c.key === key);
           return colSchema ? `${colSchema.aliases[0].toUpperCase()} (${key})` : key;
@@ -250,7 +251,27 @@ export const UploadPage: React.FC = () => {
                       </div>
                     )}
                     {sheet.isValid && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400">All required fields mapped successfully.</span>
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">All required fields mapped successfully.</span>
+                        {sheet.warnings.filter(w => !w.startsWith('Unused column')).length > 0 && (
+                          <div className="mt-1 pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                            <span className="text-[9px] text-slate-550 dark:text-slate-400 font-bold block uppercase tracking-wider">Mapped Headers:</span>
+                            <ul className="text-[10px] text-indigo-650 dark:text-indigo-400 space-y-0.5 font-medium pl-1">
+                              {sheet.warnings.filter(w => !w.startsWith('Unused column')).map((w, idx) => (
+                                <li key={idx} className="flex items-center gap-1.5">
+                                  <span className="w-1 h-1 rounded-full bg-indigo-500 shrink-0" />
+                                  <span>{w.replace('Mapped alias: ', '').replace('Mapped fuzzy: ', 'Fuzzy match: ')}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {sheet.warnings.filter(w => w.startsWith('Unused column')).length > 0 && (
+                          <div className="text-[9px] text-slate-400 dark:text-slate-500 italic pt-0.5">
+                            {sheet.warnings.filter(w => w.startsWith('Unused column')).length} extra columns ignored
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}

@@ -42,7 +42,7 @@ export const workbookSchema: Record<string, SheetSchema> = {
       { key: 'theme', aliases: ['theme', 'category', 'topic'], type: 'string', required: false },
       { key: 'wasCallingRequired', aliases: ['wascallingrequiredonchat', 'callingrequired'], type: 'string', required: false },
       { key: 'didAgentOutcall', aliases: ['didagentoutcall', 'outcall'], type: 'string', required: false },
-      { key: 'exactReason', aliases: ['whatisexactreasonforhighaht', 'exactreason', 'highahtreason', 'reason'], type: 'string', required: true },
+      { key: 'exactReason', aliases: ['whatisexactreasonforhighaht', 'exactreason', 'highahtreason', 'reason', 'reasonforhighaht', 'whatisthereasonforhighaht', 'ahtreason', 'rootcause', 'highhandlingreason'], type: 'string', required: true },
       { key: 'betterReduction', aliases: ['whatcouldhavebeendonebettertoreduseaht', 'betterreduction', 'coachingpoints'], type: 'string', required: false },
       { key: 'processSuggestion', aliases: ['whatisyoursuggestiontoreduseaht', 'whatisyourprocesssuggestiontoredusetheaht', 'processsuggestion'], type: 'string', required: false },
       { key: 'queueName', aliases: ['queuename', 'queue', 'lob'], type: 'string', required: false },
