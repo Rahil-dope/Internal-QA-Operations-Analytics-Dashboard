@@ -4,8 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart, SimpleBarChart } from '../../components/shared/ChartCard';
 import { getEscalationsInsights } from '../../lib/insights/escalationsInsights';
-import { ColumnDef } from '@tanstack/react-table';
-import { formatDate } from '../../lib/utils';
+import type { ColumnDef } from '@tanstack/react-table';
+import { formatDate, formatPercent } from '../../lib/utils';
 import { 
   Share2, 
   UserX, 

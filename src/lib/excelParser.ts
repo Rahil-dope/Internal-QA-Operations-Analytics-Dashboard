@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { workbookSchema, SheetSchema, ColumnSchema } from '../config/workbookSchema';
+import { workbookSchema } from '../config/workbookSchema';
+import type { SheetSchema } from '../config/workbookSchema';
 import type { 
   DSATAudit, 
   AHTAudit, 

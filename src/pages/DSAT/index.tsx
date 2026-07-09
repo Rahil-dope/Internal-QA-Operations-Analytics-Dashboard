@@ -5,8 +5,8 @@ import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart, SimpleBarChart } from '../../components/shared/ChartCard';
 import { getDsatInsights } from '../../lib/insights/dsatInsights';
 import { Input } from '../../components/ui/input';
-import { ColumnDef } from '@tanstack/react-table';
-import { formatDate, formatPercent } from '../../lib/utils';
+import type { ColumnDef } from '@tanstack/react-table';
+import { formatDate, formatPercent, cn } from '../../lib/utils';
 import { 
   FileWarning, 
   UserX, 
