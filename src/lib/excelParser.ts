@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { workbookSchema, SheetSchema, ColumnSchema } from '../config/workbookSchema';
 import type { 
   DSATAudit, 
   AHTAudit, 
@@ -21,7 +22,6 @@ export function parseExcelDate(val: any): Date {
     if (!isNaN(val.getTime())) return val;
   }
   if (typeof val === 'number') {
-    // Excel stores dates as serial numbers
     // 25569 is difference in days between Excel epoch (1900) and Unix epoch (1970)
     const date = new Date((val - 25569) * 86400 * 1000);
     return date;
@@ -41,11 +41,9 @@ export function parseExcelDate(val: any): Date {
 export function parseExcelDuration(val: any): number {
   if (val === null || val === undefined) return 0;
   if (typeof val === 'number') {
-    // Excel stores durations as fractions of a day (1.0 = 24 hours)
     return Math.round(val * 86400);
   }
   if (val instanceof Date) {
-    // Time component from date object
     const hours = val.getHours();
     const minutes = val.getMinutes();
     const seconds = val.getSeconds();
@@ -55,7 +53,6 @@ export function parseExcelDuration(val: any): number {
     const trimmed = val.trim();
     if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'none') return 0;
     
-    // Check for HH:MM:SS format
     const parts = trimmed.split(':');
     if (parts.length === 3) {
       const hours = parseFloat(parts[0]) || 0;
@@ -72,25 +69,35 @@ export function parseExcelDuration(val: any): number {
 }
 
 // Helper to determine the header row index and map normalized names to column indices
-function mapHeaders(rows: any[][]): { headerMap: Map<string, number>; startRowIdx: number } {
+function mapHeaders(rows: any[][], schema: SheetSchema): { headerMap: Map<string, number>; startRowIdx: number } {
   const headerMap = new Map<string, number>();
   let headerRowIdx = 0;
+  let maxMatches = -1;
 
-  // Search first 5 rows to find the header row (contains keywords like "date", "agent", "emp", etc.)
+  // Compile all valid aliases in schema
+  const allAliases = new Set<string>();
+  schema.columns.forEach(col => {
+    col.aliases.forEach(alias => allAliases.add(normalizeHeader(alias)));
+  });
+
+  // Search first 5 rows to find the row with the most matching aliases
   for (let i = 0; i < Math.min(rows.length, 5); i++) {
     const row = rows[i];
     if (!row) continue;
     
-    // Check if this row has substantial text and matches typical headers
-    const hasKeyColumns = row.some(cell => {
-      if (!cell) return false;
-      const norm = normalizeHeader(cell);
-      return norm.includes('date') || norm.includes('agent') || norm.includes('emp') || norm.includes('chat') || norm.includes('ticket');
+    let matches = 0;
+    row.forEach(cell => {
+      if (cell !== null && cell !== undefined) {
+        const norm = normalizeHeader(cell);
+        if (norm && allAliases.has(norm)) {
+          matches++;
+        }
+      }
     });
 
-    if (hasKeyColumns) {
+    if (matches > maxMatches) {
+      maxMatches = matches;
       headerRowIdx = i;
-      break;
     }
   }
 
@@ -110,14 +117,13 @@ function mapHeaders(rows: any[][]): { headerMap: Map<string, number>; startRowId
   };
 }
 
-// Map a single row of cells into a typed object based on aliases
-function mapRow<T>(row: any[], headerMap: Map<string, number>, mappings: Record<keyof T, string[]>): T {
+// Map a single row of cells into a typed object based on aliases defined in schema
+function mapRowBySchema<T>(row: any[], headerMap: Map<string, number>, schema: SheetSchema): T {
   const result = {} as T;
   
-  for (const key in mappings) {
-    const aliases = mappings[key as keyof T];
+  schema.columns.forEach(col => {
     let foundIdx = -1;
-    for (const alias of aliases) {
+    for (const alias of col.aliases) {
       const normAlias = normalizeHeader(alias);
       if (headerMap.has(normAlias)) {
         foundIdx = headerMap.get(normAlias)!;
@@ -126,14 +132,94 @@ function mapRow<T>(row: any[], headerMap: Map<string, number>, mappings: Record<
     }
     
     const rawVal = foundIdx !== -1 && foundIdx < row.length ? row[foundIdx] : null;
-    result[key as keyof T] = rawVal as any;
-  }
+    result[col.key as keyof T] = rawVal as any;
+  });
   
   return result;
 }
 
+export interface SheetValidationReport {
+  name: string;
+  exists: boolean;
+  empty: boolean;
+  missingColumns: string[];
+  validColumns: string[];
+}
+
+export interface ValidationReport {
+  valid: boolean;
+  sheets: SheetValidationReport[];
+}
+
+// Validate the uploaded workbook against our workbook schema config
+export function validateWorkbook(buffer: ArrayBuffer): ValidationReport {
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const report: ValidationReport = { valid: true, sheets: [] };
+
+  for (const sheetKey in workbookSchema) {
+    const schema = workbookSchema[sheetKey];
+    const sheet = workbook.Sheets[schema.name];
+    
+    if (!sheet) {
+      report.valid = false;
+      report.sheets.push({
+        name: schema.name,
+        exists: false,
+        empty: true,
+        missingColumns: schema.columns.filter(c => c.required).map(c => c.key),
+        validColumns: []
+      });
+      continue;
+    }
+
+    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+    if (rows.length <= 1) {
+      report.valid = false;
+      report.sheets.push({
+        name: schema.name,
+        exists: true,
+        empty: true,
+        missingColumns: schema.columns.filter(c => c.required).map(c => c.key),
+        validColumns: []
+      });
+      continue;
+    }
+
+    const { headerMap } = mapHeaders(rows, schema);
+
+    const missingColumns: string[] = [];
+    const validColumns: string[] = [];
+
+    schema.columns.forEach(col => {
+      let found = false;
+      for (const alias of col.aliases) {
+        const normAlias = normalizeHeader(alias);
+        if (headerMap.has(normAlias)) {
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        validColumns.push(col.key);
+      } else if (col.required) {
+        missingColumns.push(col.key);
+        report.valid = false;
+      }
+    });
+
+    report.sheets.push({
+      name: schema.name,
+      exists: true,
+      empty: false,
+      missingColumns,
+      validColumns
+    });
+  }
+
+  return report;
+}
+
 export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
-  // Read spreadsheet, parsing dates as Date objects
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   
   const dsat: DSATAudit[] = [];
@@ -141,39 +227,19 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
   const escalations: SMEscalation[] = [];
   const shrinkage: ShrinkageRecord[] = [];
   const performance: AgentKPI[] = [];
-
-  // Sheet name mappings in the excel workbook
-  // Expected names: 'DSAT', 'AHT', 'SM Escalations', 'Shrinkage', 'Performance'
   
   // 1. Parse DSAT Sheet
-  const dsatSheet = workbook.Sheets['DSAT'];
+  const dsatSchema = workbookSchema.dsat;
+  const dsatSheet = workbook.Sheets[dsatSchema.name];
   if (dsatSheet) {
     const rows = XLSX.utils.sheet_to_json<any[]>(dsatSheet, { header: 1 });
-    const { headerMap, startRowIdx } = mapHeaders(rows);
-    
-    const mappings: Record<keyof DSATAudit, string[]> = {
-      agentId: ['agentid', 'ldapemail'],
-      agentName: ['agentname', 'ldapname'],
-      date: ['dsatdate', 'date'],
-      ldapEmail: ['ldapemail'],
-      lob: ['lob'],
-      observations: ['observations'],
-      ticketId: ['ticketid'],
-      orderId: ['orderid'],
-      refunded: ['refunded'],
-      teamLeader: ['teamleader', 'supervisor'],
-      issueCategory: ['issuecategory'],
-      issueSubCategory: ['issuesubcategory'],
-      issueSubSubCategory: ['issuesubsubcategory'],
-      rebuttalStatus: ['rebuttalstatus']
-    };
+    const { headerMap, startRowIdx } = mapHeaders(rows, dsatSchema);
 
     for (let i = startRowIdx; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0 || !row.some(c => c !== null && c !== '')) continue;
-      const raw = mapRow<DSATAudit>(row, headerMap, mappings);
+      const raw = mapRowBySchema<any>(row, headerMap, dsatSchema);
       
-      // Clean data
       dsat.push({
         agentId: String(raw.agentId || '').trim(),
         agentName: String(raw.agentName || raw.agentId || '').trim(),
@@ -194,31 +260,16 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
   }
 
   // 2. Parse AHT Sheet
-  const ahtSheet = workbook.Sheets['AHT'];
+  const ahtSchema = workbookSchema.aht;
+  const ahtSheet = workbook.Sheets[ahtSchema.name];
   if (ahtSheet) {
     const rows = XLSX.utils.sheet_to_json<any[]>(ahtSheet, { header: 1 });
-    const { headerMap, startRowIdx } = mapHeaders(rows);
-
-    const mappings: Record<keyof AHTAudit, string[]> = {
-      date: ['auditdate', 'transactiondate', 'date', '66dateformat'],
-      agentEmail: ['agentemailid', 'agentemail', 'emailaddress'],
-      ticketId: ['kaptureosticketid', 'ticketid', 'chatid'],
-      theme: ['theme'],
-      wasCallingRequired: ['wascallingrequiredonchat'],
-      didAgentOutcall: ['didagentoutcall'],
-      exactReason: ['whatisexactreasonforhighaht', 'exactreason'],
-      betterReduction: ['whatcouldhavebeendonebettertoreduseaht', 'betterreduction'],
-      processSuggestion: ['whatisyoursuggestiontoreduseaht', 'processsuggestion'],
-      queueName: ['queuename', 'queue'],
-      ahtOpportunity: ['ahtopportunity'],
-      aht: ['aht'],
-      dsat: ['dsat']
-    };
+    const { headerMap, startRowIdx } = mapHeaders(rows, ahtSchema);
 
     for (let i = startRowIdx; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0 || !row.some(c => c !== null && c !== '')) continue;
-      const raw = mapRow<AHTAudit>(row, headerMap, mappings);
+      const raw = mapRowBySchema<any>(row, headerMap, ahtSchema);
 
       aht.push({
         date: parseExcelDate(raw.date),
@@ -233,43 +284,23 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
         queueName: String(raw.queueName || '').trim(),
         ahtOpportunity: String(raw.ahtOpportunity || '').trim(),
         aht: isNaN(Number(raw.aht)) ? 0 : Number(raw.aht),
-        dsat: isNaN(Number(raw.dsat)) ? 0 : Number(raw.dsat)
+        dsat: isNaN(Number(raw.dsat)) ? 0 : Number(raw.dsat),
+        acpt: String(raw.acpt || '').trim()
       });
     }
   }
 
   // 3. Parse SM Escalations Sheet
-  const smSheet = workbook.Sheets['SM Escalations'];
+  const escalationsSchema = workbookSchema.escalations;
+  const smSheet = workbook.Sheets[escalationsSchema.name];
   if (smSheet) {
     const rows = XLSX.utils.sheet_to_json<any[]>(smSheet, { header: 1 });
-    const { headerMap, startRowIdx } = mapHeaders(rows);
-
-    const mappings: Record<keyof SMEscalation, string[]> = {
-      date: ['date'],
-      hour: ['hour'],
-      ticketId: ['ticketid'],
-      assignedAdvisor: ['assignedadvisor'],
-      escalationType: ['escalationtype'],
-      orderId: ['orderid'],
-      supportTicket: ['supportticket'],
-      l3Reason: ['l3reason'],
-      store: ['store'],
-      source: ['source'],
-      agentName: ['agentname'],
-      agentEmail: ['agentemail'],
-      queue: ['queue'],
-      skuName: ['skuname'],
-      vendor: ['vendor'],
-      refundDeny: ['refunddenyyesno'],
-      acpt: ['acpt'],
-      l1: ['l1'],
-      l2: ['l2']
-    };
+    const { headerMap, startRowIdx } = mapHeaders(rows, escalationsSchema);
 
     for (let i = startRowIdx; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0 || !row.some(c => c !== null && c !== '')) continue;
-      const raw = mapRow<SMEscalation>(row, headerMap, mappings);
+      const raw = mapRowBySchema<any>(row, headerMap, escalationsSchema);
 
       escalations.push({
         date: parseExcelDate(raw.date),
@@ -296,30 +327,17 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
   }
 
   // 4. Parse Shrinkage Sheet
-  const shrinkageSheet = workbook.Sheets['Shrinkage'];
+  const shrinkageSchema = workbookSchema.shrinkage;
+  const shrinkageSheet = workbook.Sheets[shrinkageSchema.name];
   if (shrinkageSheet) {
     const rows = XLSX.utils.sheet_to_json<any[]>(shrinkageSheet, { header: 1 });
-    const { headerMap, startRowIdx } = mapHeaders(rows);
-
-    const mappings: Record<keyof ShrinkageRecord, string[]> = {
-      date: ['date'],
-      empId: ['empid'],
-      zeptoId: ['zeptoid', 'agentemail'],
-      employeeName: ['employeename', 'employee'],
-      supervisor: ['supervisor'],
-      wfhWfo: ['wfhwfo'],
-      queue: ['queue'],
-      attendance: ['attendance'],
-      actualLoginHrs: ['actualloginhrsincudingrefresher', 'actualloginhrs'],
-      targetLoginHrs: ['target']
-    };
+    const { headerMap, startRowIdx } = mapHeaders(rows, shrinkageSchema);
 
     for (let i = startRowIdx; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0 || !row.some(c => c !== null && c !== '')) continue;
-      const raw = mapRow<ShrinkageRecord>(row, headerMap, mappings);
+      const raw = mapRowBySchema<any>(row, headerMap, shrinkageSchema);
 
-      // We only want records that represent actual attendance logging
       if (!raw.employeeName && !raw.zeptoId) continue;
 
       shrinkage.push({
@@ -338,35 +356,16 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
   }
 
   // 5. Parse Performance Sheet
-  const performanceSheet = workbook.Sheets['Performance'];
+  const performanceSchema = workbookSchema.performance;
+  const performanceSheet = workbook.Sheets[performanceSchema.name];
   if (performanceSheet) {
     const rows = XLSX.utils.sheet_to_json<any[]>(performanceSheet, { header: 1 });
-    const { headerMap, startRowIdx } = mapHeaders(rows);
-
-    const mappings: Record<keyof AgentKPI, string[]> = {
-      agentEmail: ['empcode', 'agentemail'],
-      chatCount: ['chatcount'],
-      frs: ['frs'],
-      aht: ['aht'],
-      waitime: ['waitime'],
-      hcPresent: ['hcpresent'],
-      cpa: ['cpa'],
-      csat: ['csat'],
-      dsat: ['dsat'],
-      csatPercent: ['csatpercent', 'csat'],
-      responsePercent: ['responsepercent', 'response'],
-      knowmaxPercent: ['knowmaxpercent', 'knowmax'],
-      sameDayRepeatPercent: ['samedayrepeatpercent', 'samedayrepeat'],
-      productivity: ['productivity'],
-      avgLoginHrs: ['avgloginhrs'],
-      sumOfBreak: ['sumofbreak'],
-      sumOfLoginHrs: ['sumofloginhrs']
-    };
+    const { headerMap, startRowIdx } = mapHeaders(rows, performanceSchema);
 
     for (let i = startRowIdx; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0 || !row.some(c => c !== null && c !== '')) continue;
-      const raw = mapRow<AgentKPI>(row, headerMap, mappings);
+      const raw = mapRowBySchema<any>(row, headerMap, performanceSchema);
 
       if (!raw.agentEmail) continue;
 
@@ -385,9 +384,7 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
         knowmaxPercent: isNaN(Number(raw.knowmaxPercent)) ? 0 : Number(raw.knowmaxPercent),
         sameDayRepeatPercent: isNaN(Number(raw.sameDayRepeatPercent)) ? 0 : Number(raw.sameDayRepeatPercent),
         productivity: isNaN(Number(raw.productivity)) ? 0 : Number(raw.productivity),
-        avgLoginHrs: parseExcelDuration(raw.avgLoginHrs),
-        sumOfBreak: parseExcelDuration(raw.sumOfBreak),
-        sumOfLoginHrs: parseExcelDuration(raw.sumOfLoginHrs)
+        avgLoginHrs: parseExcelDuration(raw.avgLoginHrs)
       });
     }
   }
