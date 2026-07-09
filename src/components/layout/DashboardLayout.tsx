@@ -32,7 +32,7 @@ export const DashboardLayout: React.FC = () => {
     refreshData, 
     resetToDefault 
   } = useExcelData();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { toggleTheme, isDark } = useTheme();
   const location = useLocation();
 
   // Helper to determine active link styling

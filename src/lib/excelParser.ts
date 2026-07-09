@@ -256,6 +256,7 @@ export function parseExcelFile(buffer: ArrayBuffer): OperationsDataset {
         issueSubCategory: String(raw.issueSubCategory || '').trim(),
         issueSubSubCategory: String(raw.issueSubSubCategory || '').trim(),
         rebuttalStatus: String(raw.rebuttalStatus || 'Accept').trim(),
+        acpt: String(raw.acpt || '').trim(),
       });
     }
   }

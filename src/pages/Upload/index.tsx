@@ -2,7 +2,8 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useExcelData } from '../../context/ExcelDataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { validateWorkbook, ValidationReport } from '../../lib/excelParser';
+import { validateWorkbook } from '../../lib/excelParser';
+import type { ValidationReport } from '../../lib/excelParser';
 import { workbookSchema } from '../../config/workbookSchema';
 import { 
   Upload as UploadIcon, 
@@ -10,7 +11,6 @@ import {
   XCircle, 
   RefreshCw, 
   RotateCcw, 
-  FileSpreadsheet, 
   AlertCircle,
   FileCheck
 } from 'lucide-react';

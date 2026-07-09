@@ -61,7 +61,12 @@ The project follows a clean, modular structure:
 │   │   └── utils.ts        # Helper formatters (duration, percent, cn)
 │   ├── pages/              # View screens
 │   │   ├── Home/           # Overview Dashboard containing summary, charts, rankings, insights
-│   │   └── Phase2Placeholder.tsx # Standard placeholders for upcoming pages
+│   │   ├── DSAT/           # Detailed DSAT audits dashboard
+│   │   ├── AHT/            # Detailed AHT audits dashboard
+│   │   ├── Escalations/    # Detailed SM Escalations dashboard
+│   │   ├── Shrinkage/      # Detailed Shrinkage and Heatmap dashboard
+│   │   ├── Performance/    # Detailed Agent KPI rankings dashboard
+│   │   └── Upload/         # Workbook Manager page
 │   ├── types/              # Global TypeScript interfaces
 │   │   └── data.ts         # Excel schema interfaces
 │   ├── App.tsx             # Main routing shell and provider hookup
@@ -71,6 +76,30 @@ The project follows a clean, modular structure:
 ├── tsconfig.json           # Compiler rules (strict TypeScript enabled)
 └── README.md               # Product documentation (This file)
 ```
+
+---
+
+## Data Source Upload & Local Management
+
+The dashboard supports two levels of data loading:
+1. **Default Data**: Reads `/public/data.xlsx` served by the application on startup.
+2. **User Uploaded Data**: Managers can upload their own `.xlsx` workbook using the **Workbook Manager** page.
+
+### Upload Workflow
+- Navigate to the **Workbook Manager** link in the sidebar or top bar actions.
+- Drag & Drop an `.xlsx` workbook or browse to select a file.
+- The uploader automatically runs a verification report. It checks:
+  - Presence of required sheets: `DSAT`, `AHT`, `SM Escalations`, `Shrinkage`, and `Performance`.
+  - Required columns within each sheet, utilizing case-insensitive aliases.
+  - Presence of data (rejects empty workbooks).
+- **Validation Report**: If the file fails verification, the page displays a granular checklist showing exactly which sheets were valid and which required columns were missing (e.g. `✗ Performance: Missing CPA`).
+- **Binary Persistence**: If valid, the workbook is parsed immediately, updating all dashboard pages. The workbook binary `ArrayBuffer` is saved into **IndexedDB** in the browser.
+- **Auto-load**: When the page is reloaded, the application checks IndexedDB. If an uploaded workbook is found, it loads it automatically; otherwise, it falls back to the default data.
+
+### Data Actions
+- **Refresh Data**: Located in the top header, this reloads the workbook from its source (re-fetches if default, re-reads if custom) to sync with any changes.
+- **Reset Default**: Appears in the top header if custom data is loaded. Clears the browser's IndexedDB and falls back immediately to the default `/public/data.xlsx` dataset.
+- **Summary Statistics**: A successful upload displays counts of sheets, unique active agents, and records mapped per sheet so managers can verify imports at a glance.
 
 ---
 
