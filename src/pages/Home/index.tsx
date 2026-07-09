@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useExcelData } from '../../context/ExcelDataContext';
+import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../../components/ui/card';
 import { AreaTrendChart } from '../../components/shared/ChartCard';
 import { MetricCard } from '../../components/shared/MetricCard';
@@ -13,7 +14,8 @@ import {
   Award,
   Zap,
   TrendingDown,
-  UserCheck
+  UserCheck,
+  Database
 } from 'lucide-react';
 import { getDsatInsights } from '../../lib/insights/dsatInsights';
 import { getAhtInsights } from '../../lib/insights/ahtInsights';
@@ -28,11 +30,34 @@ export const HomeDashboard: React.FC = () => {
     filteredEscalations,
     filteredShrinkage,
     filteredPerformance,
-    loading
+    loading,
+    dataset
   } = useExcelData();
 
   // State for rankings metric selection ('csat' or 'cpa')
   const [rankingsMetric, setRankingsMetric] = useState<'csat' | 'cpa'>('csat');
+
+  if (!loading && !dataset) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg min-h-[300px] text-center max-w-md mx-auto my-12 shadow-sm animate-fade-in select-none">
+        <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center mb-4">
+          <Database className="w-5 h-5 text-slate-400" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">No Workbook Loaded</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+          Upload an Excel workbook to begin analyzing QA & Operations data.
+        </p>
+        <div className="mt-5">
+          <Link 
+            to="/upload" 
+            className="inline-flex items-center justify-center rounded-md text-xs font-semibold px-4 h-9 bg-indigo-600 hover:bg-indigo-750 text-white transition-colors"
+          >
+            Upload Workbook
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // 1. Calculate Summary Card Metrics
   const summaryMetrics = useMemo(() => {

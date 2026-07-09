@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useExcelData } from '../../context/ExcelDataContext';
 import { useTheme } from '../../hooks/useTheme';
 import { FilterBar } from '../shared/FilterBar';
@@ -30,14 +30,23 @@ export const DashboardLayout: React.FC = () => {
   const { 
     loading, 
     error, 
-    sourceType, 
     fileName, 
     lastUpdated, 
     refreshData, 
-    resetToDefault 
+    resetToDefault,
+    dataset,
+    agents
   } = useExcelData();
   const { toggleTheme, isDark } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Redirect to upload if no workbook exists
+  React.useEffect(() => {
+    if (!loading && !dataset && location.pathname !== '/upload') {
+      navigate('/upload', { replace: true });
+    }
+  }, [loading, dataset, location.pathname, navigate]);
 
   // Helper to determine active link styling
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -84,6 +93,24 @@ export const DashboardLayout: React.FC = () => {
     return `${dateStr} ${timeStr}`;
   }, [lastUpdated]);
 
+  const recordCount = React.useMemo(() => {
+    if (!dataset) return 0;
+    return (
+      (dataset.dsat?.length || 0) +
+      (dataset.aht?.length || 0) +
+      (dataset.escalations?.length || 0) +
+      (dataset.shrinkage?.length || 0) +
+      (dataset.performance?.length || 0)
+    );
+  }, [dataset]);
+
+  const handleClearData = async () => {
+    if (window.confirm('Are you sure you want to clear the workbook? This will delete the data and return the dashboard to an empty state.')) {
+      await resetToDefault();
+      navigate('/upload');
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
       {/* Sidebar */}
@@ -127,6 +154,42 @@ export const DashboardLayout: React.FC = () => {
           </div>
         </nav>
 
+        {/* Status Widget */}
+        <div className="px-4 py-4 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-2">Workbook Status</span>
+          {dataset ? (
+            <div className="p-3 rounded-lg bg-emerald-50/20 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-950/30 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Loaded
+              </div>
+              <div className="text-[11px] font-medium text-slate-700 dark:text-slate-350 truncate" title={fileName}>
+                {fileName}
+              </div>
+              <div className="grid grid-cols-2 gap-2 border-t border-slate-150 dark:border-slate-800 pt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                <div>
+                  <span className="block text-[8px] uppercase font-bold text-slate-400">Agents</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-350">{agents.length}</span>
+                </div>
+                <div>
+                  <span className="block text-[8px] uppercase font-bold text-slate-400">Records</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-350">{recordCount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/60 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                Not Loaded
+              </div>
+              <p className="text-[10px] text-slate-400 leading-normal">
+                Upload a workbook to begin.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Sidebar Footer / Theme Toggle */}
         <div className="p-4 border-t flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-900/50 select-none">
           <div className="flex items-center justify-between">
@@ -147,11 +210,11 @@ export const DashboardLayout: React.FC = () => {
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-4 gap-3 border-b bg-white dark:bg-slate-900 shrink-0">
           <div>
             <h1 className="text-lg font-semibold">{getPageTitle()}</h1>
-            {!loading && !error && (
+            {!loading && !error && dataset && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-450 mt-1">
                 <span className="flex items-center gap-1">
                   <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400" />
-                  Source: <strong className="capitalize">{sourceType}</strong> ({fileName})
+                  Workbook: <strong className="font-semibold text-slate-700 dark:text-slate-300">{fileName}</strong>
                 </span>
                 {lastUpdated && (
                   <span>
@@ -163,14 +226,14 @@ export const DashboardLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {sourceType === 'uploaded' && (
+            {dataset && (
               <Button
-                variant="outline"
+                variant="destructive"
                 size="sm"
-                onClick={resetToDefault}
-                className="text-xs h-8"
+                onClick={handleClearData}
+                className="text-xs h-8 bg-red-650 hover:bg-red-750 text-white"
               >
-                Reset Default
+                Clear Data
               </Button>
             )}
             <Button
@@ -179,6 +242,7 @@ export const DashboardLayout: React.FC = () => {
               onClick={refreshData}
               className="flex items-center gap-1 text-xs h-8"
               title="Reload file from source"
+              disabled={!dataset}
             >
               <RefreshCw className="w-3.5 h-3.5" /> Refresh
             </Button>
@@ -205,7 +269,7 @@ export const DashboardLayout: React.FC = () => {
                 <p className="font-bold">Troubleshooting steps:</p>
                 <ol className="list-decimal pl-4 space-y-1">
                   <li>Verify the workbook format matches the expected sheet structure.</li>
-                  <li>Click <button onClick={resetToDefault} className="underline font-bold text-red-650 hover:text-red-800">Reset Default</button> to fall back to the standard dataset.</li>
+                  <li>Click <button onClick={resetToDefault} className="underline font-bold text-red-650 hover:text-red-800">Clear Data</button> to return the dashboard to a clean empty state.</li>
                   <li>Ensure the file is not corrupted or password-protected.</li>
                 </ol>
               </div>
@@ -213,7 +277,7 @@ export const DashboardLayout: React.FC = () => {
           ) : (
             <>
               {/* Global Filters */}
-              {location.pathname !== '/upload' && <FilterBar />}
+              {location.pathname !== '/upload' && dataset && <FilterBar />}
 
               {/* Outlet for routes with local Suspense boundary and ErrorBoundary */}
               <div className="flex-grow">

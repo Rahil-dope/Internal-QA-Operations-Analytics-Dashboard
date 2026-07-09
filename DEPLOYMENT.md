@@ -29,8 +29,8 @@ npm run preview
 ```
 
 Open `http://localhost:4173` to test the compiled app. Verify that:
-1. The dashboard loads the default metrics successfully.
-2. Excel exports download the files properly.
+1. The app redirects to `/upload` automatically since no data is loaded.
+2. Uploading a valid Excel workbook populates all dashboards instantly.
 3. Dark and light themes toggle correctly.
 
 ---
@@ -122,8 +122,8 @@ Our `vercel.json` configures the following basic security headers for production
 Go through this checklist on the live deployment to guarantee absolute parity:
 
 - [ ] **Data Parsing**: Visit `/upload`, upload a custom Excel workbook, and confirm the metrics update immediately.
-- [ ] **IndexedDB Persistence**: Refresh the browser after custom upload. Confirm the uploaded data is retrieved and shown instead of reverting to default.
-- [ ] **Reset Action**: Click "Reset Default" in the header or on `/upload` and verify the uploader returns to `data.xlsx` default.
+- [ ] **IndexedDB Persistence**: Refresh the browser after custom upload. Confirm the uploaded data is retrieved and shown instead of returning to the empty state.
+- [ ] **Reset Action**: Click "Clear Data" in the header or uploader and verify the app returns to the empty state and redirects to `/upload`.
 - [ ] **Date and Agent Filters**: Change the date slider and verify that cards and tables re-calculate.
 - [ ] **Chart Fullscreen**: Click the Maximize icon on the trend charts and verify the modal overlays show correctly.
 - [ ] **Theme Persistence**: Switch to dark mode and refresh the page. Confirm the dark theme is retained.

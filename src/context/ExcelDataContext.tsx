@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { ExcelDataAdapter } from '../lib/dataAdapter';
 import { loadWorkbookFromDB, saveWorkbookToDB, clearWorkbookFromDB } from '../lib/db';
 import { parseExcelFile, validateWorkbook } from '../lib/excelParser';
-import type { OperationsDataAdapter } from '../lib/dataAdapter';
 import type { 
   OperationsDataset, 
   DSATAudit, 
@@ -17,7 +15,7 @@ interface AgentListItem {
   name: string;
 }
 
-export type SourceType = 'default' | 'uploaded';
+export type SourceType = 'uploaded';
 
 interface ExcelDataContextProps {
   loading: boolean;
@@ -62,17 +60,16 @@ interface ExcelDataContextProps {
 
 const ExcelDataContext = createContext<ExcelDataContextProps | undefined>(undefined);
 
-export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: OperationsDataAdapter }> = ({ 
-  children, 
-  adapter 
+export const ExcelDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
+  children 
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [dataset, setDataset] = useState<OperationsDataset | null>(null);
 
   // Metadata State
-  const [sourceType, setSourceType] = useState<SourceType>('default');
-  const [fileName, setFileName] = useState<string>('data.xlsx');
+  const [sourceType, setSourceType] = useState<SourceType>('uploaded');
+  const [fileName, setFileName] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Filter State (persistent in localStorage)
@@ -123,10 +120,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     localStorage.setItem('filter_searchQuery', query);
   }, []);
 
-  // Use the injected adapter or default to ExcelDataAdapter
-  const defaultAdapter = useMemo(() => adapter || new ExcelDataAdapter('/data.xlsx'), [adapter]);
-
-  // Load workbook (from IndexedDB if present, else fallback to public URL)
+  // Load workbook (from IndexedDB only, starts empty if not uploaded)
   const loadActiveWorkbook = React.useCallback(async (forceRefresh: boolean = false) => {
     setLoading(true);
     setError(null);
@@ -162,26 +156,25 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
             setLoading(false);
             return;
           } else {
-            console.warn('Persisted workbook in IndexedDB failed validation. Reverting to default.');
+            console.warn('Persisted workbook in IndexedDB failed validation. Cleaning database.');
             await clearWorkbookFromDB();
             localStorage.removeItem('workbook_meta');
           }
         }
       }
       
-      // Fallback: Fetch default /data.xlsx
-      const data = await defaultAdapter.fetchData();
-      setDataset(data);
-      setSourceType('default');
-      setFileName('data.xlsx');
-      setLastUpdated(new Date());
+      // Empty State: No file loaded
+      setDataset(null);
+      setSourceType('uploaded');
+      setFileName('');
+      setLastUpdated(null);
       setLoading(false);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to load operations workbook');
       setLoading(false);
     }
-  }, [defaultAdapter]);
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -236,7 +229,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     }
   };
 
-  // Expose reset to default action
+  // Expose clear data action (resets to empty state)
   const resetToDefault = async (): Promise<void> => {
     setLoading(true);
     try {
@@ -259,7 +252,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
 
   // Expose refresh data action
   const refreshData = async (): Promise<void> => {
-    await loadActiveWorkbook(sourceType === 'default');
+    await loadActiveWorkbook(false);
   };
 
   // Compute unified list of agents

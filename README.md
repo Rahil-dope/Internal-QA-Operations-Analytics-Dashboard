@@ -24,8 +24,7 @@ Make sure you have Node.js (version 18+ recommended) and npm installed.
 ### Installation
 
 1. Clone or download the repository into your workspace.
-2. Ensure the Excel workbook `final review file.xlsx` is placed in the `public/` directory and renamed to `data.xlsx` (this is done automatically during setup but double-check if updating data).
-3. Install dependencies:
+2. Install dependencies:
    ```bash
    npm install --legacy-peer-deps
    ```
@@ -90,25 +89,22 @@ The project follows a clean, modular structure:
 
 ## Data Source Upload & Local Management
 
-The dashboard supports two levels of data loading:
-1. **Default Data**: Reads `/public/data.xlsx` served by the application on startup.
-2. **User Uploaded Data**: Managers can upload their own `.xlsx` workbook using the **Workbook Manager** page.
+The dashboard runs entirely on user-uploaded workbook data:
+- **First Launch State**: The application starts in an empty state. If no workbook is detected in IndexedDB, the user is automatically redirected to the **Workbook Manager** page (`/upload`) to upload their data.
+- **Persistence**: Once a valid workbook is uploaded, its binary data is stored locally in the browser's **IndexedDB** database. It remains persisted across browser refreshes and system reboots.
 
 ### Upload Workflow
-- Navigate to the **Workbook Manager** link in the sidebar or top bar actions.
-- Drag & Drop an `.xlsx` workbook or browse to select a file.
-- The uploader automatically runs a verification report. It checks:
+- Drag & Drop an `.xlsx` workbook or click to browse.
+- The parser automatically runs a verification report. It validates:
   - Presence of required sheets: `DSAT`, `AHT`, `SM Escalations`, `Shrinkage`, and `Performance`.
-  - Required columns within each sheet, utilizing case-insensitive aliases.
-  - Presence of data (rejects empty workbooks).
-- **Validation Report**: If the file fails verification, the page displays a granular checklist showing exactly which sheets were valid and which required columns were missing (e.g. `✗ Performance: Missing CPA`).
-- **Binary Persistence**: If valid, the workbook is parsed immediately, updating all dashboard pages. The workbook binary `ArrayBuffer` is saved into **IndexedDB** in the browser.
-- **Auto-load**: When the page is reloaded, the application checks IndexedDB. If an uploaded workbook is found, it loads it automatically; otherwise, it falls back to the default data.
+  - Required columns within each sheet, matching them case-insensitively using alias configurations.
+  - Data records count (rejects empty worksheets).
+- **Validation Report**: If schema validation fails, the page shows a granular check list indicating exactly which columns or sheets are missing (e.g. `✗ AHT: Missing handled_time`).
+- **Binary Persistence**: If valid, the workbook is parsed, saved to IndexedDB, and the user is redirected automatically to the **Overview Dashboard** (`/`).
 
-### Data Actions
-- **Refresh Data**: Located in the top header, this reloads the workbook from its source (re-fetches if default, re-reads if custom) to sync with any changes.
-- **Reset Default**: Appears in the top header if custom data is loaded. Clears the browser's IndexedDB and falls back immediately to the default `/public/data.xlsx` dataset.
-- **Summary Statistics**: A successful upload displays counts of sheets, unique active agents, and records mapped per sheet so managers can verify imports at a glance.
+### Local Data Actions
+- **Refresh Data**: Located in the top header, this re-reads the workbook from IndexedDB and re-runs calculations to sync views.
+- **Clear Data**: Clears the browser's IndexedDB and localStorage metadata. This returns the application to its clean empty state and redirects the user back to the upload page.
 
 ---
 

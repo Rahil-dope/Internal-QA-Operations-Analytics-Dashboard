@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useExcelData } from '../../context/ExcelDataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -17,6 +18,7 @@ import {
 import { cn } from '../../lib/utils';
 
 export const UploadPage: React.FC = () => {
+  const navigate = useNavigate();
   const { 
     sourceType, 
     fileName, 
@@ -70,6 +72,9 @@ export const UploadPage: React.FC = () => {
       const success = await uploadWorkbook(file);
       if (success) {
         setUploadStatus('success');
+        setTimeout(() => {
+          navigate('/');
+        }, 1000);
       } else {
         setUploadStatus('error');
         setErrorMsg('Failed to save the workbook to IndexedDB storage.');

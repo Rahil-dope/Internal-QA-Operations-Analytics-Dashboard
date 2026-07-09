@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useExcelData } from '../../context/ExcelDataContext';
+import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart, SimpleBarChart } from '../../components/shared/ChartCard';
@@ -16,13 +17,36 @@ import {
   AlertTriangle, 
   ClipboardList,
   Search,
-  Zap
+  Zap,
+  Database
 } from 'lucide-react';
 import type { DSATAudit } from '../../types/data';
 
 export const DsatDashboard: React.FC = () => {
-  const { filteredDsat, loading } = useExcelData();
+  const { filteredDsat, loading, dataset } = useExcelData();
   const [subCategorySearch, setSubCategorySearch] = useState('');
+
+  if (!loading && !dataset) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg min-h-[300px] text-center max-w-md mx-auto my-12 shadow-sm animate-fade-in select-none">
+        <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center mb-4">
+          <Database className="w-5 h-5 text-slate-400" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">No data available</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+          There is no operations data loaded. Upload an Excel workbook to unlock dashboard analytics.
+        </p>
+        <div className="mt-5">
+          <Link 
+            to="/upload" 
+            className="inline-flex items-center justify-center rounded-md text-xs font-semibold px-4 h-9 bg-indigo-650 hover:bg-indigo-755 text-white transition-colors"
+          >
+            Upload Workbook
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // 1. Insights
   const insights = useMemo(() => getDsatInsights(filteredDsat), [filteredDsat]);
