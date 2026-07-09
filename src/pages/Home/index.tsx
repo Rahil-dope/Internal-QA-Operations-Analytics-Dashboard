@@ -15,6 +15,11 @@ import {
   TrendingDown,
   UserCheck
 } from 'lucide-react';
+import { getDsatInsights } from '../../lib/insights/dsatInsights';
+import { getAhtInsights } from '../../lib/insights/ahtInsights';
+import { getEscalationsInsights } from '../../lib/insights/escalationsInsights';
+import { getShrinkageInsights } from '../../lib/insights/shrinkageInsights';
+import { getKpiInsights } from '../../lib/insights/kpiInsights';
 
 export const HomeDashboard: React.FC = () => {
   const {
@@ -158,83 +163,43 @@ export const HomeDashboard: React.FC = () => {
 
   // 4. Automated Operations Insights Panel
   const insights = useMemo(() => {
-    const list: { type: 'success' | 'warning' | 'info'; title: string; desc: string }[] = [];
+    const dsatAlerts = getDsatInsights(filteredDsat);
+    const ahtAlerts = getAhtInsights(filteredAht);
+    const escAlerts = getEscalationsInsights(filteredEscalations);
+    const shrinkageAlerts = getShrinkageInsights(filteredShrinkage);
+    const kpiAlerts = getKpiInsights(filteredPerformance);
 
-    // Insight A: Attendance Issue
-    const lowAttendanceAgents = filteredShrinkage
-      .filter(s => s.attendance === 'A')
-      .reduce((acc, curr) => {
-        acc[curr.employeeName] = (acc[curr.employeeName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+    const list: any[] = [];
+    
+    // Add warnings first
+    const addWarning = (alerts: any[]) => {
+      const warning = alerts.find(a => a.type === 'warning');
+      if (warning) list.push(warning);
+    };
+    
+    addWarning(shrinkageAlerts);
+    addWarning(dsatAlerts);
+    addWarning(escAlerts);
+    addWarning(ahtAlerts);
+    
+    // Fill up to 4 with other insights
+    const allAlerts = [...shrinkageAlerts, ...dsatAlerts, ...escAlerts, ...ahtAlerts, ...kpiAlerts]
+      .filter(a => 
+        a.title !== 'No DSAT Data' && 
+        a.title !== 'No AHT Data' && 
+        a.title !== 'No Escalations' && 
+        a.title !== 'No Attendance Data' && 
+        a.title !== 'No KPI Data' && 
+        a.title !== 'Operations Stable'
+      );
       
-    const criticalAbsents = Object.entries(lowAttendanceAgents)
-      .filter(([_, count]) => count >= 2)
-      .map(([name, count]) => `${name} (${count} absents)`);
-
-    if (criticalAbsents.length > 0) {
-      list.push({
-        type: 'warning',
-        title: 'Attendance Concerns',
-        desc: `High absenteeism detected for: ${criticalAbsents.slice(0, 2).join(', ')}. Planned reviews advised.`
-      });
-    }
-
-    // Insight B: High AHT opportunities
-    if (filteredAht.length > 0) {
-      const ahtReasons = filteredAht
-        .map(a => a.exactReason)
-        .filter(Boolean)
-        .reduce((acc, curr) => {
-          acc[curr] = (acc[curr] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-      const topReason = Object.entries(ahtReasons).sort((a, b) => b[1] - a[1])[0];
-      if (topReason && topReason[1] > 2) {
-        list.push({
-          type: 'info',
-          title: 'Primary AHT Opportunity',
-          desc: `"${topReason[0]}" accounts for ${topReason[1]} high-AHT audits. Consider targeted coaching.`
-        });
+    allAlerts.forEach(alert => {
+      if (list.length < 4 && !list.some(l => l.title === alert.title)) {
+        list.push(alert);
       }
-    }
-
-    // Insight C: SM Escalation issue trending
-    if (filteredEscalations.length > 0) {
-      const smReasons = filteredEscalations
-        .map(e => e.l3Reason)
-        .filter(Boolean)
-        .reduce((acc, curr) => {
-          acc[curr] = (acc[curr] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        
-      const topSmReason = Object.entries(smReasons).sort((a, b) => b[1] - a[1])[0];
-      const ratio = topSmReason ? (topSmReason[1] / filteredEscalations.length) : 0;
-      if (topSmReason && ratio > 0.15) {
-        list.push({
-          type: 'warning',
-          title: `Trending Social Escalation: ${topSmReason[0]}`,
-          desc: `"${topSmReason[0]}" is responsible for ${formatPercent(ratio)} of SM tickets. Store/SOP checks needed.`
-        });
-      }
-    }
-
-    // Insight D: Good performance
-    const champion = [...filteredPerformance]
-      .filter(p => p.chatCount >= 100)
-      .sort((a, b) => b.csatPercent - a.csatPercent)[0];
-
-    if (champion && champion.csatPercent > 0.8) {
-      list.push({
-        type: 'success',
-        title: 'KPI Champion Spot',
-        desc: `${champion.agentEmail.split('@')[0]} achieved ${formatPercent(champion.csatPercent)} CSAT across ${champion.chatCount} chats this month.`
-      });
-    }
-
-    // Fallback if list is empty
+    });
+    
+    // Fallback if empty
     if (list.length === 0) {
       list.push({
         type: 'info',
@@ -244,7 +209,7 @@ export const HomeDashboard: React.FC = () => {
     }
 
     return list.slice(0, 4);
-  }, [filteredShrinkage, filteredAht, filteredEscalations, filteredPerformance]);
+  }, [filteredDsat, filteredAht, filteredEscalations, filteredShrinkage, filteredPerformance]);
 
   const trendsSeries = useMemo(() => [
     { key: 'DSAT Audits', name: 'DSAT Audits', color: '#ef4444' },
