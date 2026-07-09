@@ -13,6 +13,7 @@ export interface DSATAudit {
   issueSubCategory: string; // Issue Sub Category
   issueSubSubCategory: string; // Issue Sub Sub Category
   rebuttalStatus: string; // Rebuttal Status
+  acpt: string; // ACPT Accountability
 }
 
 export interface AHTAudit {
@@ -29,6 +30,7 @@ export interface AHTAudit {
   ahtOpportunity: string; // AHT Opportunity
   aht: number; // AHT
   dsat: number; // DSAT
+  acpt: string; // ACPT Accountability
 }
 
 export interface SMEscalation {
@@ -82,8 +84,8 @@ export interface AgentKPI {
   sameDayRepeatPercent: number; // Same day Repeat % (decimal)
   productivity: number; // Productivity
   avgLoginHrs: number; // AVG Login Hrs in seconds
-  sumOfBreak: number; // Sum of Break in seconds
-  sumOfLoginHrs: number; // Sum of Login Hrs in seconds
+  sumOfBreak?: number; // Sum of Break in seconds
+  sumOfLoginHrs?: number; // Sum of Login Hrs in seconds
 }
 
 export interface OperationsDataset {
