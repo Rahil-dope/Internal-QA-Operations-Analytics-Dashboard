@@ -7,7 +7,7 @@ import { getAhtInsights } from '../../lib/insights/ahtInsights';
 import { MetricCard } from '../../components/shared/MetricCard';
 import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
-import { formatDate } from '../../lib/utils';
+import { formatDate, cn } from '../../lib/utils';
 import { 
   Clock, 
   UserX, 
@@ -17,7 +17,6 @@ import {
   Zap,
   PhoneCall
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import type { AHTAudit } from '../../types/data';
 
 export const AhtDashboard: React.FC = () => {

@@ -7,7 +7,7 @@ import { getKpiInsights } from '../../lib/insights/kpiInsights';
 import { MetricCard } from '../../components/shared/MetricCard';
 import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
-import { formatPercent, formatDuration } from '../../lib/utils';
+import { formatPercent, formatDuration, cn } from '../../lib/utils';
 import { 
   UserCheck, 
   Award, 
@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   Zap
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import type { AgentKPI } from '../../types/data';
 
 export const KpiDashboard: React.FC = () => {

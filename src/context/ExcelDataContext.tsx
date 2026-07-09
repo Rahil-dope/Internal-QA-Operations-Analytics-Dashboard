@@ -127,7 +127,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
   const defaultAdapter = useMemo(() => adapter || new ExcelDataAdapter('/data.xlsx'), [adapter]);
 
   // Load workbook (from IndexedDB if present, else fallback to public URL)
-  const loadActiveWorkbook = async (forceRefresh: boolean = false) => {
+  const loadActiveWorkbook = React.useCallback(async (forceRefresh: boolean = false) => {
     setLoading(true);
     setError(null);
     
@@ -181,12 +181,12 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       setError(err.message || 'Failed to load operations workbook');
       setLoading(false);
     }
-  };
+  }, [defaultAdapter]);
 
   // Initial load
   useEffect(() => {
     loadActiveWorkbook();
-  }, [defaultAdapter]);
+  }, [loadActiveWorkbook]);
 
   // Expose upload action
   const uploadWorkbook = async (file: File): Promise<boolean> => {
@@ -331,7 +331,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       setStartDate(dateBounds.min);
       setEndDate(dateBounds.max);
     }
-  }, [dateBounds, startDate, endDate]);
+  }, [dateBounds, startDate, endDate, setStartDate, setEndDate]);
 
   const resetFilters = () => {
     if (dateBounds) {
@@ -346,7 +346,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
   };
 
   // Helper date filtering function
-  const isWithinDateRange = (date: Date) => {
+  const isWithinDateRange = React.useCallback((date: Date) => {
     if (!startDate && !endDate) return true;
     
     const cellTime = date.getTime();
@@ -354,16 +354,16 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
     const endLimit = endDate ? new Date(endDate.getTime()).setHours(23, 59, 59, 999) : Infinity;
     
     return cellTime >= startLimit && cellTime <= endLimit;
-  };
+  }, [startDate, endDate]);
 
   // Helper agent filtering function
-  const isAgentMatch = (rowEmail: string, rowName?: string) => {
+  const isAgentMatch = React.useCallback((rowEmail: string, rowName?: string) => {
     if (!selectedAgent) return true;
     const target = selectedAgent.toLowerCase();
     const isEmailMatch = rowEmail.toLowerCase() === target;
     const isNameMatch = rowName ? rowName.toLowerCase() === target : false;
     return isEmailMatch || isNameMatch;
-  };
+  }, [selectedAgent]);
 
   // Filtered DSAT
   const filteredDsat = useMemo(() => {
@@ -388,7 +388,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       }
       return true;
     });
-  }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
+  }, [dataset, isWithinDateRange, isAgentMatch, searchQuery]);
 
   // Filtered AHT
   const filteredAht = useMemo(() => {
@@ -411,7 +411,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       }
       return true;
     });
-  }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
+  }, [dataset, isWithinDateRange, isAgentMatch, searchQuery]);
 
   // Filtered SM Escalations
   const filteredEscalations = useMemo(() => {
@@ -441,7 +441,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       }
       return true;
     });
-  }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
+  }, [dataset, isWithinDateRange, isAgentMatch, searchQuery]);
 
   // Filtered Shrinkage
   const filteredShrinkage = useMemo(() => {
@@ -462,7 +462,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       }
       return true;
     });
-  }, [dataset, startDate, endDate, selectedAgent, searchQuery]);
+  }, [dataset, isWithinDateRange, isAgentMatch, searchQuery]);
 
   // Filtered Performance
   const filteredPerformance = useMemo(() => {
@@ -476,7 +476,7 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
       }
       return true;
     });
-  }, [dataset, selectedAgent, searchQuery]);
+  }, [dataset, isAgentMatch, searchQuery]);
 
   return (
     <ExcelDataContext.Provider value={{

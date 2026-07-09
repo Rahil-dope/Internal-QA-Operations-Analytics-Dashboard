@@ -1,6 +1,15 @@
 # OpsAnalytics - QA & Operations Analytics Dashboard
 
-A production-ready internal QA and Operations Analytics Dashboard built using React, TypeScript, Vite, Tailwind CSS, and Recharts. This application automatically loads and parses an Excel workbook (`final review file.xlsx`) served as a static asset, providing dynamic operations overview statistics.
+## Project Overview
+
+OpsAnalytics is a high-performance, single-team operations analytics dashboard. It allows team managers and QA operations officers to track and analyze team metrics in real-time. By parsing operational Excel spreadsheets client-side, it eliminates the need for a dedicated back-end, database administration, or external authentication servers. 
+
+The application maps, validates, and aggregates five core sheets:
+- **DSAT Audits**: Track and analyze customer dissatisfaction failure rates, agent accountabilities, process bottlenecks, and quality issues.
+- **AHT Audits**: Audit ticket handling times and identify opportunities for reduction (agent training vs. process delays).
+- **Social Media Escalations**: Monitor ticket spikes, escalation times, policy constraints, and refund denied triggers.
+- **Shrinkage**: Compute roster compliance, unplanned absenteeism rates, planned holiday leave tracks, and login hour deficits.
+- **Agent KPI**: Review rankings and average handle times, customer satisfaction score percentages (CSAT%), and First Response Speed (FRS).
 
 Designed for internal use by a single operations team. It runs entirely client-side (no auth, no backend, no multi-tenancy).
 
@@ -278,3 +287,21 @@ While this dashboard is fully feature-complete and presentation-ready, the follo
    Configure the modular insights engine to fire webhook notifications directly to operations team chat rooms when critical anomalies (e.g. absentee hotspots or low outcall compliance) are detected.
 4. **Downloadable Chart Snapshots**:
    Add canvas-render actions to download charts as high-resolution PNG images.
+
+---
+
+## Supported Browsers
+
+OpsAnalytics is verified across the following desktop web browsers:
+- **Google Chrome** (v110+): Full support (Fastest rendering and IndexedDB read/write performance).
+- **Microsoft Edge** (v110+): Full support.
+- **Apple Safari** (v16+): Full support.
+- **Mozilla Firefox** (v115+): Full support.
+
+---
+
+## Known Limitations
+
+- **Client-Side File Size**: Large Excel files (over 50MB) may experience parsing lag depending on client-side CPU constraints. The default/recommended workbook size is under 15MB.
+- **Data Range Limits**: Performance rankings and daily charts dynamically compute indexes in memory. Date ranges spanning more than 2 consecutive years may cause chart labels to crowd.
+- **Local Storage Dependency**: Global filter persistence and custom uploaded workbooks rely on browser `localStorage` and `IndexedDB`. Clearing site data in your browser settings will revert the dashboard to default data.

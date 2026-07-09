@@ -7,7 +7,7 @@ import { getShrinkageInsights } from '../../lib/insights/shrinkageInsights';
 import { MetricCard } from '../../components/shared/MetricCard';
 import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
-import { formatDate, formatPercent, formatDuration } from '../../lib/utils';
+import { formatDate, formatPercent, formatDuration, cn } from '../../lib/utils';
 import { 
   UserCheck, 
   UserX, 
@@ -16,7 +16,6 @@ import {
   Clock,
   Zap
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import type { ShrinkageRecord } from '../../types/data';
 
 export const ShrinkageDashboard: React.FC = () => {

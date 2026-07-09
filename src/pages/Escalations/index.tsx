@@ -7,7 +7,7 @@ import { getEscalationsInsights } from '../../lib/insights/escalationsInsights';
 import { MetricCard } from '../../components/shared/MetricCard';
 import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
-import { formatDate, formatPercent } from '../../lib/utils';
+import { formatDate, formatPercent, cn } from '../../lib/utils';
 import { 
   Share2, 
   UserX, 
@@ -17,7 +17,6 @@ import {
   Zap,
   AlertTriangle
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import type { SMEscalation } from '../../types/data';
 
 export const EscalationsDashboard: React.FC = () => {
