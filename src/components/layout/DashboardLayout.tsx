@@ -5,6 +5,9 @@ import { useTheme } from '../../hooks/useTheme';
 import { FilterBar } from '../shared/FilterBar';
 import { Button } from '../ui/button';
 import { ErrorBoundary } from '../shared/ErrorBoundary';
+
+declare const __APP_VERSION__: string;
+declare const __BUILD_DATE__: string;
 import { 
   LayoutDashboard, 
   FileWarning, 
@@ -128,8 +131,8 @@ export const DashboardLayout: React.FC = () => {
         <div className="p-4 border-t flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-900/50 select-none">
           <div className="flex items-center justify-between">
             <div className="flex flex-col text-[10px] text-slate-450 dark:text-slate-500 font-mono">
-              <span className="font-semibold text-slate-600 dark:text-slate-450">v1.2.0 (Production)</span>
-              <span>Built: 10 Jul 2026</span>
+              <span className="font-semibold text-slate-600 dark:text-slate-450">v{__APP_VERSION__} (Production)</span>
+              <span>Build: {__BUILD_DATE__}</span>
             </div>
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
               {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
