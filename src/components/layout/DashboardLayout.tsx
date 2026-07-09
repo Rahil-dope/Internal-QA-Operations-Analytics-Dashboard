@@ -206,9 +206,16 @@ export const DashboardLayout: React.FC = () => {
               {/* Global Filters */}
               {location.pathname !== '/upload' && <FilterBar />}
 
-              {/* Outlet for routes */}
+              {/* Outlet for routes with local Suspense boundary */}
               <div className="flex-grow">
-                <Outlet />
+                <React.Suspense fallback={
+                  <div className="flex flex-col items-center justify-center h-48 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                    <span className="text-xs text-slate-400">Loading dashboard...</span>
+                  </div>
+                }>
+                  <Outlet />
+                </React.Suspense>
               </div>
             </>
           )}

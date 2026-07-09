@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart, SimpleBarChart } from '../../components/shared/ChartCard';
 import { getDsatInsights } from '../../lib/insights/dsatInsights';
+import { MetricCard } from '../../components/shared/MetricCard';
+import { InsightItem } from '../../components/shared/InsightItem';
 import { Input } from '../../components/ui/input';
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatDate, formatPercent, cn } from '../../lib/utils';
@@ -174,63 +176,37 @@ export const DsatDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Summary Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total DSAT Audits</span>
-            <FileWarning className="w-4 h-4 text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Evaluated audit failures</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Agent Accountable</span>
-            <UserX className="w-4 h-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.agentCount}</div>
-            <p className="text-[10px] text-red-500 font-semibold mt-1">
-              {formatPercent(stats.agentErrorRate)} error rate
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Process Accountable</span>
-            <ClipboardList className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.processCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Operational bottlenecks</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Customer Accountability</span>
-            <HelpCircle className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.customerCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Expectation mismatch failures</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Policy Constraints</span>
-            <HelpCircle className="w-4 h-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.policyCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">SOP policy constraints</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
+        <MetricCard
+          title="Total DSAT Audits"
+          value={stats.total}
+          subtext="Evaluated audit failures"
+          icon={<FileWarning className="w-4 h-4 text-red-500" />}
+        />
+        <MetricCard
+          title="Agent Accountable"
+          value={stats.agentCount}
+          subtext={`${formatPercent(stats.agentErrorRate)} error rate`}
+          icon={<UserX className="w-4 h-4 text-red-500" />}
+        />
+        <MetricCard
+          title="Process Accountable"
+          value={stats.processCount}
+          subtext="Operational bottlenecks"
+          icon={<ClipboardList className="w-4 h-4 text-amber-500" />}
+        />
+        <MetricCard
+          title="Customer Accountability"
+          value={stats.customerCount}
+          subtext="Expectation mismatch failures"
+          icon={<HelpCircle className="w-4 h-4 text-emerald-500" />}
+        />
+        <MetricCard
+          title="Policy Constraints"
+          value={stats.policyCount}
+          subtext="SOP policy constraints"
+          icon={<HelpCircle className="w-4 h-4 text-indigo-500" />}
+        />
       </div>
 
       {/* 2. Charts & Insights Row */}
@@ -255,21 +231,9 @@ export const DsatDashboard: React.FC = () => {
             </CardTitle>
             <CardDescription className="text-xs">Dynamic analysis of filtered audit records</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
-            {insights.map((item, idx) => (
-              <div key={idx} className="flex gap-2.5 p-3 rounded-lg border text-xs bg-slate-50/40 dark:bg-slate-900/50">
-                <div className="shrink-0 mt-0.5">
-                  {item.type === 'warning' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <HelpCircle className="w-4 h-4 text-indigo-500" />
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-850 dark:text-slate-200">{item.title}</div>
-                  <div className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.desc}</div>
-                </div>
-              </div>
+          <CardContent className="flex-grow space-y-3 p-4 overflow-y-auto max-h-[320px]">
+            {insights.map((item, index) => (
+              <InsightItem key={index} insight={item} />
             ))}
           </CardContent>
         </Card>

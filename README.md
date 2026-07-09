@@ -263,3 +263,18 @@ Since this is a client-only static SPA (Single Page Application), it can be depl
    - For Vercel: Add a `vercel.json` with a rewrite rule.
    - For Netlify: Add a `_redirects` file: `/* /index.html 200`.
    - For AWS S3: Set the index document and error document both to `index.html`.
+
+---
+
+## Future Improvements
+
+While this dashboard is fully feature-complete and presentation-ready, the following architectural upgrades can be implemented in future phases:
+
+1. **Live Sheets/API Synchronization**:
+   Implement a live database or Google Sheets API adapter to query operational audits automatically without manual Excel uploads.
+2. **Text Sentiment & Observation Clustering**:
+   Use client-side natural language processing (e.g. TF-IDF or tokenization scripts) to run keyword clustering on raw observation cells, providing a semantic tag cloud.
+3. **Slack / MS Teams Webhook Alerts**:
+   Configure the modular insights engine to fire webhook notifications directly to operations team chat rooms when critical anomalies (e.g. absentee hotspots or low outcall compliance) are detected.
+4. **Downloadable Chart Snapshots**:
+   Add canvas-render actions to download charts as high-resolution PNG images.

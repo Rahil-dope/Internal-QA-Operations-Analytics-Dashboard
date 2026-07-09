@@ -183,15 +183,15 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      {/* Table Body */}
-      <div className="rounded-md border bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader>
+      {/* Table Body - scrollable container with sticky support */}
+      <div className="rounded-md border bg-white dark:bg-slate-900 overflow-hidden shadow-sm max-h-[520px] overflow-y-auto overflow-x-auto relative">
+        <Table className="w-full border-collapse">
+          <TableHeader className="sticky top-0 bg-slate-50 dark:bg-slate-900 z-10 border-b shadow-[0_1px_0_rgba(0,0,0,0.05)]">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="font-semibold text-xs py-3">
+                    <TableHead key={header.id} className="font-semibold text-xs py-3 bg-inherit text-slate-550 dark:text-slate-400">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -210,7 +210,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 text-xs border-b"
+                  className="hover:bg-slate-100/40 dark:hover:bg-slate-800/40 text-xs border-b odd:bg-white even:bg-slate-50/20 dark:odd:bg-slate-900 dark:even:bg-slate-900/10 transition-colors animate-fade-in"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-2.5 px-3">

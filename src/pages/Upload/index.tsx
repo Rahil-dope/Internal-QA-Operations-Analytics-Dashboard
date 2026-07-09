@@ -22,6 +22,7 @@ export const UploadPage: React.FC = () => {
     fileName, 
     dataset, 
     agents,
+    lastUpdated,
     uploadWorkbook, 
     resetToDefault, 
     refreshData 
@@ -301,6 +302,14 @@ export const UploadPage: React.FC = () => {
                   <span className="text-slate-550 dark:text-slate-400">KPI Performance Records</span>
                   <span className="font-bold">{dataset.performance.length}</span>
                 </div>
+                {lastUpdated && (
+                  <div className="flex justify-between items-center py-1 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-550 dark:text-slate-400">Last Loaded</span>
+                    <span className="font-bold text-indigo-500 dark:text-indigo-400">
+                      {lastUpdated.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

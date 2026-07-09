@@ -2,14 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { useExcelData } from '../../context/ExcelDataContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../../components/ui/card';
 import { AreaTrendChart } from '../../components/shared/ChartCard';
+import { MetricCard } from '../../components/shared/MetricCard';
+import { InsightItem } from '../../components/shared/InsightItem';
 import { formatPercent, formatDuration, cn } from '../../lib/utils';
 import { 
   FileWarning, 
   Clock, 
   Share2, 
   TrendingUp, 
-  AlertCircle, 
-  CheckCircle,
   Award,
   Zap,
   TrendingDown,
@@ -220,72 +220,37 @@ export const HomeDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Summary Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {/* Total DSAT */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total DSAT</span>
-            <FileWarning className="w-4 h-4 text-red-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{summaryMetrics.totalDsat}</div>
-            <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1">Audit failures in period</p>
-          </CardContent>
-        </Card>
-
-        {/* Total AHT Audits */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">AHT Audits</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{summaryMetrics.totalAhtAudits}</div>
-            <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1">Chat audits in period</p>
-          </CardContent>
-        </Card>
-
-        {/* Social Escalations */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">SM Escalations</span>
-            <Share2 className="w-4 h-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{summaryMetrics.totalEscalations}</div>
-            <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1">Social media tickets raised</p>
-          </CardContent>
-        </Card>
-
-        {/* Attendance Summary */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Attendance Summary</span>
-            <UserCheck className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{formatPercent(summaryMetrics.attendanceRate)}</div>
-            <div className="flex gap-2 mt-1">
-              <span className="text-[10px] text-red-500">{summaryMetrics.absentDays} Absents</span>
-              <span className="text-[10px] text-slate-450">{summaryMetrics.leaveDays} Leaves</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI Average */}
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">KPI Averages</span>
-            <Award className="w-4 h-4 text-violet-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{formatPercent(summaryMetrics.avgCsat)}</div>
-            <div className="flex gap-2 mt-1 text-[10px] text-slate-450 dark:text-slate-500">
-              <span>CPA: {summaryMetrics.avgCpa.toFixed(1)}</span>
-              <span>AHT: {formatDuration(summaryMetrics.avgAht)}</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
+        <MetricCard
+          title="Total DSAT"
+          value={summaryMetrics.totalDsat}
+          subtext="Audit failures in period"
+          icon={<FileWarning className="w-4 h-4 text-red-500" />}
+        />
+        <MetricCard
+          title="AHT Audits"
+          value={summaryMetrics.totalAhtAudits}
+          subtext="Chat audits in period"
+          icon={<Clock className="w-4 h-4 text-amber-500" />}
+        />
+        <MetricCard
+          title="SM Escalations"
+          value={summaryMetrics.totalEscalations}
+          subtext="Social media tickets raised"
+          icon={<Share2 className="w-4 h-4 text-indigo-500" />}
+        />
+        <MetricCard
+          title="Attendance Summary"
+          value={formatPercent(summaryMetrics.attendanceRate)}
+          subtext={`${summaryMetrics.absentDays} Absents | ${summaryMetrics.leaveDays} Leaves`}
+          icon={<UserCheck className="w-4 h-4 text-emerald-500" />}
+        />
+        <MetricCard
+          title="KPI Averages"
+          value={formatPercent(summaryMetrics.avgCsat)}
+          subtext={`CPA: ${summaryMetrics.avgCpa.toFixed(1)}% | AHT: ${formatDuration(summaryMetrics.avgAht)}`}
+          icon={<Award className="w-4 h-4 text-violet-500" />}
+        />
       </div>
 
       {/* 2. Trends & Insights Row */}
@@ -310,29 +275,14 @@ export const HomeDashboard: React.FC = () => {
             </CardTitle>
             <CardDescription className="text-xs">Dynamic operational anomalies and highlights</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
+          <CardContent className="flex-grow space-y-3 p-4 overflow-y-auto max-h-[320px]">
             {insights.map((item, index) => (
-              <div key={index} className="flex gap-2.5 p-3 rounded-lg border text-xs dark:bg-slate-900/50">
-                <div className="shrink-0 mt-0.5">
-                  {item.type === 'warning' ? (
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                  ) : item.type === 'success' ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  ) : (
-                    <Award className="w-4 h-4 text-indigo-500" />
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-850 dark:text-slate-200">{item.title}</div>
-                  <div className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.desc}</div>
-                </div>
-              </div>
+              <InsightItem key={index} insight={item} />
             ))}
           </CardContent>
         </Card>
       </div>
 
-      {/* 3. Quick Rankings (Top & Bottom Agents) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
           <div>

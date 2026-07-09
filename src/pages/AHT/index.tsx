@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart, SimpleBarChart } from '../../components/shared/ChartCard';
 import { getAhtInsights } from '../../lib/insights/ahtInsights';
+import { MetricCard } from '../../components/shared/MetricCard';
+import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatDate } from '../../lib/utils';
 import { 
@@ -212,65 +214,37 @@ export const AhtDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total AHT Audits</span>
-            <Clock className="w-4 h-4 text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Conducted audits</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Agent Error</span>
-            <UserX className="w-4 h-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.agentCount}</div>
-            <p className="text-[10px] text-red-500 font-semibold mt-1">
-              {stats.total > 0 ? ((stats.agentCount / stats.total) * 100).toFixed(0) : 0}% team share
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Process Error</span>
-            <Layers className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.processCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">SOP & systems bottlenecks</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Customer Error</span>
-            <HelpCircle className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.customerCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Customer-driven delay triggers</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Outcall Compliance</span>
-            <PhoneCall className="w-4 h-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{((stats.callingRate) * 100).toFixed(0)}%</div>
-            <p className="text-[10px] text-slate-450 mt-1">
-              {stats.callingCompleted} of {stats.callingRequired} required outcalls
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
+        <MetricCard
+          title="Total AHT Audits"
+          value={stats.total}
+          subtext="Conducted audits"
+          icon={<Clock className="w-4 h-4 text-slate-400" />}
+        />
+        <MetricCard
+          title="Agent Error"
+          value={stats.agentCount}
+          subtext={`${stats.total > 0 ? ((stats.agentCount / stats.total) * 100).toFixed(0) : 0}% team share`}
+          icon={<UserX className="w-4 h-4 text-red-500" />}
+        />
+        <MetricCard
+          title="Process Error"
+          value={stats.processCount}
+          subtext="SOP & systems bottlenecks"
+          icon={<Layers className="w-4 h-4 text-amber-500" />}
+        />
+        <MetricCard
+          title="Customer Error"
+          value={stats.customerCount}
+          subtext="Customer-driven delay triggers"
+          icon={<HelpCircle className="w-4 h-4 text-emerald-500" />}
+        />
+        <MetricCard
+          title="Outcall Compliance"
+          value={`${((stats.callingRate) * 100).toFixed(0)}%`}
+          subtext={`${stats.callingCompleted} of ${stats.callingRequired} outcalls`}
+          icon={<PhoneCall className="w-4 h-4 text-indigo-500" />}
+        />
       </div>
 
       {/* 2. Trends & Insights */}
@@ -295,21 +269,9 @@ export const AhtDashboard: React.FC = () => {
             </CardTitle>
             <CardDescription className="text-xs">Dynamic operational summaries for coaching</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
-            {insights.map((item, idx) => (
-              <div key={idx} className="flex gap-2.5 p-3 rounded-lg border text-xs bg-slate-50/40 dark:bg-slate-900/50">
-                <div className="shrink-0 mt-0.5">
-                  {item.type === 'warning' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <Clock className="w-4 h-4 text-amber-500" />
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-850 dark:text-slate-200">{item.title}</div>
-                  <div className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.desc}</div>
-                </div>
-              </div>
+          <CardContent className="flex-grow space-y-3 p-4 overflow-y-auto max-h-[320px]">
+            {insights.map((item, index) => (
+              <InsightItem key={index} insight={item} />
             ))}
           </CardContent>
         </Card>

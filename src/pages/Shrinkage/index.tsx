@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { DataTable } from '../../components/shared/DataTable';
 import { AreaTrendChart } from '../../components/shared/ChartCard';
 import { getShrinkageInsights } from '../../lib/insights/shrinkageInsights';
+import { MetricCard } from '../../components/shared/MetricCard';
+import { InsightItem } from '../../components/shared/InsightItem';
 import type { ColumnDef } from '@tanstack/react-table';
 import { formatDate, formatPercent, formatDuration } from '../../lib/utils';
 import { 
@@ -199,65 +201,37 @@ export const ShrinkageDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Attendance Rate</span>
-            <UserCheck className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPercent(stats.attendanceRate, 1)}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Roster shifts compliance</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Rostered Shifts</span>
-            <Calendar className="w-4 h-4 text-slate-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.rosteredCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Excludes weekly-offs ({stats.offCount})</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Unplanned Absents</span>
-            <UserX className="w-4 h-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.absentCount}</div>
-            <p className="text-[10px] text-red-500 font-semibold mt-1">
-              {stats.rosteredCount > 0 ? ((stats.absentCount / stats.rosteredCount) * 100).toFixed(0) : 0}% unplanned shrinkage
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Planned Leaves</span>
-            <Calendar className="w-4 h-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.leaveCount}</div>
-            <p className="text-[10px] text-slate-450 mt-1">Approved holiday leaves</p>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Login Hours Deficit</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.deficitSecs > 0 ? (stats.deficitSecs / 3600).toFixed(1) : '0.0'}h</div>
-            <p className="text-[10px] text-slate-450 mt-1">
-              Actual login: {(stats.actualLoginHrs / 3600).toFixed(0)} hours
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 animate-fade-in">
+        <MetricCard
+          title="Attendance Rate"
+          value={formatPercent(stats.attendanceRate, 1)}
+          subtext="Roster shifts compliance"
+          icon={<UserCheck className="w-4 h-4 text-emerald-500" />}
+        />
+        <MetricCard
+          title="Rostered Shifts"
+          value={stats.rosteredCount}
+          subtext={`Excludes weekly-offs (${stats.offCount})`}
+          icon={<Calendar className="w-4 h-4 text-slate-400" />}
+        />
+        <MetricCard
+          title="Unplanned Absents"
+          value={stats.absentCount}
+          subtext={`${stats.rosteredCount > 0 ? ((stats.absentCount / stats.rosteredCount) * 100).toFixed(0) : 0}% unplanned shrinkage`}
+          icon={<UserX className="w-4 h-4 text-red-500" />}
+        />
+        <MetricCard
+          title="Planned Leaves"
+          value={stats.leaveCount}
+          subtext="Approved holiday leaves"
+          icon={<Calendar className="w-4 h-4 text-indigo-500" />}
+        />
+        <MetricCard
+          title="Login Hours Deficit"
+          value={`${stats.deficitSecs > 0 ? (stats.deficitSecs / 3600).toFixed(1) : '0.0'}h`}
+          subtext={`Actual: ${(stats.actualLoginHrs / 3600).toFixed(0)}h`}
+          icon={<Clock className="w-4 h-4 text-amber-500" />}
+        />
       </div>
 
       {/* 2. Trends & Insights */}
@@ -282,21 +256,9 @@ export const ShrinkageDashboard: React.FC = () => {
             </CardTitle>
             <CardDescription className="text-xs">Dynamic analysis of roster compliance</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 space-y-4">
-            {insights.map((item, idx) => (
-              <div key={idx} className="flex gap-2.5 p-3 rounded-lg border text-xs bg-slate-50/40 dark:bg-slate-900/50">
-                <div className="shrink-0 mt-0.5">
-                  {item.type === 'warning' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <UserCheck className="w-4 h-4 text-emerald-500" />
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold text-slate-850 dark:text-slate-200">{item.title}</div>
-                  <div className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.desc}</div>
-                </div>
-              </div>
+          <CardContent className="flex-grow space-y-3 p-4 overflow-y-auto max-h-[320px]">
+            {insights.map((item, index) => (
+              <InsightItem key={index} insight={item} />
             ))}
           </CardContent>
         </Card>

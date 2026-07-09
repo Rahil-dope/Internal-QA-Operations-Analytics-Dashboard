@@ -75,11 +75,53 @@ export const ExcelDataProvider: React.FC<{ children: React.ReactNode; adapter?: 
   const [fileName, setFileName] = useState<string>('data.xlsx');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Filter State
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  // Filter State (persistent in localStorage)
+  const [startDate, setStartDateState] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('filter_startDate');
+    return saved ? new Date(saved) : null;
+  });
+  const [endDate, setEndDateState] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('filter_endDate');
+    return saved ? new Date(saved) : null;
+  });
+  const [selectedAgent, setSelectedAgentState] = useState<string | null>(() => {
+    return localStorage.getItem('filter_selectedAgent');
+  });
+  const [searchQuery, setSearchQueryState] = useState<string>(() => {
+    return localStorage.getItem('filter_searchQuery') || '';
+  });
+
+  const setStartDate = React.useCallback((date: Date | null) => {
+    setStartDateState(date);
+    if (date) {
+      localStorage.setItem('filter_startDate', date.toISOString());
+    } else {
+      localStorage.removeItem('filter_startDate');
+    }
+  }, []);
+
+  const setEndDate = React.useCallback((date: Date | null) => {
+    setEndDateState(date);
+    if (date) {
+      localStorage.setItem('filter_endDate', date.toISOString());
+    } else {
+      localStorage.removeItem('filter_endDate');
+    }
+  }, []);
+
+  const setSelectedAgent = React.useCallback((agent: string | null) => {
+    setSelectedAgentState(agent);
+    if (agent) {
+      localStorage.setItem('filter_selectedAgent', agent);
+    } else {
+      localStorage.removeItem('filter_selectedAgent');
+    }
+  }, []);
+
+  const setSearchQuery = React.useCallback((query: string) => {
+    setSearchQueryState(query);
+    localStorage.setItem('filter_searchQuery', query);
+  }, []);
 
   // Use the injected adapter or default to ExcelDataAdapter
   const defaultAdapter = useMemo(() => adapter || new ExcelDataAdapter('/data.xlsx'), [adapter]);
